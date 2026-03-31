@@ -228,7 +228,7 @@ if __name__ == "__main__":
     # Split data
     X_train, X_test, y_train, y_test = preprocessor.split_data(X, y)
     
-    # Display sample datas
+    # Display sample data
     print("\nSample Features (First 3 rows):")
     print(X.head(3))
     
