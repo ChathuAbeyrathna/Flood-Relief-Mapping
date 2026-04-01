@@ -225,7 +225,7 @@ if __name__ == "__main__":
     # Run full preprocessing
     X, y = preprocessor.run_full_preprocessing()
     
-    # Split data
+    # Split dataa
     X_train, X_test, y_train, y_test = preprocessor.split_data(X, y)
     
     # Display sample data
