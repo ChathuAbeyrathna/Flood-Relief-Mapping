@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Flood Data - Flood Detection System</title>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f3b2c 0%, #1a6b4a 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        
+        .upload-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 600px;
+            width: 100%;
+            overflow: hidden;
+        }
+        
+        .upload-header {
+            background: linear-gradient(135deg, #0f3b2c 0%, #1a6b4a 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        
+        .upload-header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .upload-header i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+        
+        .upload-body {
+            padding: 2rem;
+        }
+        
+        .file-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .file-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #0f3b2c;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            border: 2px dashed #1a6b4a;
+            border-radius: 10px;
+            padding: 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8f9fa;
+        }
+        
+        .file-input-wrapper:hover {
+            background: #e8f5e9;
+            border-color: #0f3b2c;
+        }
+        
+        .file-input-wrapper.has-file {
+            border-style: solid;
+            background: #e8f5e9;
+        }
+        
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+        
+        .file-name {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 0.3rem;
+        }
+        
+        .optional-label {
+            font-size: 0.75rem;
+            color: #888;
+            font-weight: normal;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #0f3b2c 0%, #1a6b4a 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(15, 59, 44, 0.3);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-secondary {
+            background: #e8f5e9;
+            color: #0f3b2c;
+        }
+        
+        .btn-secondary:hover {
+            background: #c8e6c9;
+        }
+        
+        .progress-container {
+            margin-top: 1.5rem;
+            display: none;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #0f3b2c, #1a6b4a);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        
+        .progress-text {
+            text-align: center;
+            margin-top: 0.5rem;
+            color: #0f3b2c;
+            font-weight: 500;
+        }
+        
+        .alert {
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .alert-success {
+            background: #e8f5e9;
+            color: #0f3b2c;
+            border: 1px solid #22c55e;
+        }
+        
+        .alert-error {
+            background: #fee2e2;
+            color: #dc2626;
+            border: 1px solid #dc2626;
+        }
+        
+        .alert-info {
+            background: #e0f2fe;
+            color: #0369a1;
+            border: 1px solid #0ea5e9;
+        }
+        
+        .nav-link {
+            display: block;
+            text-align: center;
+            margin-top: 1.5rem;
+            color: #0f3b2c;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .nav-link:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 480px) {
+            .button-group {
+                flex-direction: column;
+            }
+            .upload-body {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="upload-container">
+        <div class="upload-header">
+            <i class="fas fa-satellite"></i>
+            <h1>Upload Flood Data</h1>
+            <p>Module 1: Satellite Image Processing</p>
+        </div>
+        
+        <div class="upload-body">
+            <div id="alertContainer"></div>
+            
+            <form id="uploadForm">
+                <div class="file-group">
+                    <label>Before Flood - Band 3 (Green) *</label>
+                    <div class="file-input-wrapper" id="wrapper-before-b3">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Click to upload before_b3.tif</p>
+                        <input type="file" id="before_b3" accept=".tif,.tiff,.geotiff" required>
+                        <div class="file-name"></div>
+                    </div>
+                </div>
+                
+                <div class="file-group">
+                    <label>Before Flood - Band 5 (NIR) *</label>
+                    <div class="file-input-wrapper" id="wrapper-before-b5">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Click to upload before_b5.tif</p>
+                        <input type="file" id="before_b5" accept=".tif,.tiff,.geotiff" required>
+                        <div class="file-name"></div>
+                    </div>
+                </div>
+                
+                <div class="file-group">
+                    <label>After Flood - Band 3 (Green) *</label>
+                    <div class="file-input-wrapper" id="wrapper-after-b3">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Click to upload after_b3.tif</p>
+                        <input type="file" id="after_b3" accept=".tif,.tiff,.geotiff" required>
+                        <div class="file-name"></div>
+                    </div>
+                </div>
+                
+                <div class="file-group">
+                    <label>After Flood - Band 5 (NIR) *</label>
+                    <div class="file-input-wrapper" id="wrapper-after-b5">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Click to upload after_b5.tif</p>
+                        <input type="file" id="after_b5" accept=".tif,.tiff,.geotiff" required>
+                        <div class="file-name"></div>
+                    </div>
+                </div>
+                
+                <div class="file-group">
+                    <label>DEM (Digital Elevation Model) *</label>
+                    <div class="file-input-wrapper" id="wrapper-dem">
+                        <i class="fas fa-mountain"></i>
+                        <p>Click to upload dem.tif</p>
+                        <input type="file" id="dem" accept=".tif,.tiff,.geotiff" required>
+                        <div class="file-name"></div>
+                    </div>
+                </div>
+                
+                
+                <div class="button-group">
+                    <button type="button" class="btn btn-secondary" onclick="window.location.href='index.html'">
+                        <i class="fas fa-arrow-left"></i> Back to Dashboard
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                        <i class="fas fa-play"></i> Process Images
+                    </button>
+                </div>
+            </form>
+            
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">Processing...</div>
+            </div>
+            
+            <a href="dashboard.html" class="nav-link">
+                <i class="fas fa-chart-bar"></i> View Dashboard Results
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // File input visual feedback
+        document.querySelectorAll('input[type="file"]').forEach(input => {
+            input.addEventListener('change', function() {
+                const wrapper = this.closest('.file-input-wrapper');
+                const fileNameDiv = wrapper.querySelector('.file-name');
+                
+                if (this.files.length > 0) {
+                    wrapper.classList.add('has-file');
+                    fileNameDiv.textContent = `📄 ${this.files[0].name}`;
+                } else {
+                    wrapper.classList.remove('has-file');
+                    fileNameDiv.textContent = '';
+                }
+            });
+        });
+        
+        // Form submission
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const progressContainer = document.getElementById('progressContainer');
+            const alertContainer = document.getElementById('alertContainer');
+            
+            // Validate all required files
+            const requiredFiles = ['before_b3', 'before_b5', 'after_b3', 'after_b5', 'dem'];
+            for (const fileId of requiredFiles) {
+                const fileInput = document.getElementById(fileId);
+                if (!fileInput.files.length) {
+                    showAlert('error', `Please upload ${fileId.replace('_', ' ')}`);
+                    return;
+                }
+            }
+            
+            // Disable button and show progress
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            progressContainer.style.display = 'block';
+            alertContainer.innerHTML = '';
+            
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('before_b3', document.getElementById('before_b3').files[0]);
+            formData.append('before_b5', document.getElementById('before_b5').files[0]);
+            formData.append('after_b3', document.getElementById('after_b3').files[0]);
+            formData.append('after_b5', document.getElementById('after_b5').files[0]);
+            formData.append('dem', document.getElementById('dem').files[0]);
+            
+            
+            
+            // Simulate progress
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                if (progress < 90) {
+                    progress += Math.random() * 10;
+                    updateProgress(Math.min(progress, 90), 'Processing satellite imagery...');
+                }
+            }, 500);
+            
+            try {
+                const response = await fetch('http://localhost:5000/process', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                clearInterval(progressInterval);
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                updateProgress(100, 'Processing complete!');
+                
+                showAlert('success', `
+                    <i class="fas fa-check-circle"></i>
+                    Flood detection complete! 
+                    <br><small>Results saved to database. Go to dashboard to view.</small>
+                `);
+                
+                // Enable view results button
+                submitBtn.innerHTML = '<i class="fas fa-check"></i> Processed!';
+                
+                setTimeout(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-redo"></i> Process Again';
+                    progressContainer.style.display = 'none';
+                }, 3000);
+                
+            } catch (error) {
+                clearInterval(progressInterval);
+                updateProgress(0, '');
+                progressContainer.style.display = 'none';
+                
+                showAlert('error', `
+                    <i class="fas fa-exclamation-triangle"></i>
+                    ${error.message}
+                    <br><small>Make sure the backend is running on port 5000</small>
+                `);
+                
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-play"></i> Process Images';
+            }
+        });
+        
+        function updateProgress(percent, text) {
+            document.getElementById('progressFill').style.width = percent + '%';
+            document.getElementById('progressText').textContent = text;
+        }
+        
+        function showAlert(type, message) {
+            const alertContainer = document.getElementById('alertContainer');
+            const iconMap = {
+                'success': 'fa-check-circle',
+                'error': 'fa-exclamation-circle',
+                'info': 'fa-info-circle'
+            };
+            
+            alertContainer.innerHTML = `
+                <div class="alert alert-${type}">
+                    <i class="fas ${iconMap[type]}"></i>
+                    <div>${message}</div>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
