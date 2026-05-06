@@ -1,0 +1,5 @@
+geopandas
+pandas
+rasterio
+shapely
+openpyxl
