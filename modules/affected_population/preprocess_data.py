@@ -8,7 +8,7 @@ from rasterio.mask import mask # clip rasters by mask
 
 def run_preprocessing():
     # This finds the absolute path to the 'code' folder (finds project root directory)
-    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".." ))
 
     # Update paths to use base_dir (path to shapefile - Gampaha DS boundaries, raw data folder (input), and output folder)
     boundary_path = os.path.join(base_dir, "data", "processed", "population", "Gampaha_DS_Boundaries", "Gampaha_DS_Boundaries.shp") # Path to Gampaha DS boundary shapefile
