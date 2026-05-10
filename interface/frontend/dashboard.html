@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Module 3</title>
+</head>
+<body>
+    <h1>Module 3 Test</h1>
+    
+    <p id="status">Checking API...</p>
+    
+    <button onclick="test('Gampaha', 42105, 28, 13, 'High')">Test Gampaha</button>
+    <button onclick="test('Negombo', 30574, 28, 12, 'High')">Test Negombo</button>
+    <button onclick="test('Ja-Ela', 38596, 29, 12, 'High')">Test Ja-Ela</button>
+    
+    <pre id="result">Click a button</pre>
+
+    <script>
+        async function checkAPI() {
+            try {
+                const response = await fetch('http://localhost:5001/health');
+                if (response.ok) {
+                    document.getElementById('status').innerHTML = 'API: ONLINE';
+                } else {
+                    document.getElementById('status').innerHTML = 'API: ERROR';
+                }
+            } catch(e) {
+                document.getElementById('status').innerHTML = 'API: OFFLINE (run python app.py)';
+            }
+        }
+        
+        async function test(name, population, children, elderly, severity) {
+            document.getElementById('result').innerHTML = 'Loading...';
+            
+            const response = await fetch('http://localhost:5001/api/predict', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    division_name: name,
+                    affected_population: population,
+                    children_percentage: children,
+                    elderly_percentage: elderly,
+                    flood_severity: severity
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                let output = '';
+                
+                // 1. Division
+                output += `DIVISION: ${data.division}\n`;
+                output += `========================================\n\n`;
+                
+                // 2. INPUT SUMMARY
+                output += `INPUT SUMMARY:\n`;
+                output += `  Affected Population: ${population.toLocaleString()}\n`;
+                output += `  Children Percentage: ${children}%\n`;
+                output += `  Elderly Percentage: ${elderly}%\n`;
+                output += `  Flood Severity: ${severity}\n\n`;
+                
+                // 3. Priority
+                output += `OVERALL PRIORITY: ${data.overall_priority.toUpperCase()}\n\n`;
+                
+                // 4. Relief Items
+                output += `RELIEF ITEMS NEEDED (First 72 hours):\n`;
+                output += `----------------------------------------\n`;
+                data.relief_items.forEach(item => {
+                    output += `  ${item.item}: ${item.quantity.toLocaleString()}\n`;
+                });
+                
+                // 5. Explanation
+                output += `\nExplanation:\n`;
+                output += `----------------------------------------\n`;
+                output += `  Summary: ${data.explanation.summary}\n`;
+                if (data.explanation.reasoning) {
+                    data.explanation.reasoning.forEach(step => {
+                        output += `  • ${step}\n`;
+                    });
+                }
+                
+                // 6. Recommendations
+                output += `\nRECOMMENDATIONS:\n`;
+                output += `----------------------------------------\n`;
+                if (data.explanation.recommendations) {
+                    data.explanation.recommendations.forEach(rec => {
+                        output += `  → ${rec}\n`;
+                    });
+                }
+                
+                document.getElementById('result').innerHTML = output;
+            } else {
+                document.getElementById('result').innerHTML = `ERROR: ${data.error}`;
+            }
+        }
+        
+        checkAPI();
+    </script>
+</body>
+</html>

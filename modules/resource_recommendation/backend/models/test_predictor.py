@@ -9,7 +9,7 @@ import shutil
 if os.path.exists('models_saved'):
     shutil.rmtree('models_saved')
 
-# 1. Load RAW data (scale=False - important!)
+# Load RAW data 
 print("=" * 60)
 print("STEP 1: Loading RAW Data")
 print("=" * 60)
@@ -23,7 +23,7 @@ print(f"   Testing:  {len(X_test)} samples")
 print(f"   X_train sample: {X_train['Affected_Population'].iloc[0]:,} people")
 print(f"   y_train sample: {y_train['Cooked Food Packs'].iloc[0]:,} food packs")
 
-# 2. Train the predictor (it will handle scaling internally)
+# Train the predictor 
 print("\n" + "=" * 60)
 print("STEP 2: Training Models (Predictor handles scaling)")
 print("=" * 60)
@@ -31,7 +31,7 @@ print("=" * 60)
 predictor = ReliefPredictor()
 predictor.train_models(X_train, y_train, X_test, y_test)
 
-# 3. Test prediction on Gampaha 2025
+# Test prediction on Gampaha 2025
 print("\n" + "=" * 60)
 print("STEP 3: Making a Prediction")
 print("=" * 60)
