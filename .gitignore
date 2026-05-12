@@ -5,3 +5,6 @@ __pycache__/
 *.shp
 *.tif
 data/
+.env
+uploads/
+outputs/
