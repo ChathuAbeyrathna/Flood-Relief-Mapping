@@ -1,83 +1,68 @@
+
 """
 modules/flood_detection/config.py
-
-Central configuration file.
-To switch from GN to DS divisions:
-  1. Change SHAPEFILE_PATH to your DS shapefile
-  2. Change DIVISION_NAME_COLUMN to the correct column name
-  3. Change DIVISION_LEVEL to 'DS'
-That's it — nothing else needs to change.
+Supabase-only configuration - no local files needed.
 """
 
 import os
 
 class FloodDetectionConfig:
-
     # ── Division Level ─────────────────────────────────────────
-    # Change this to 'DS' when DS shapefile is available
-    DIVISION_LEVEL = 'GN'
+    DIVISION_LEVEL = 'DS'
+    DIVISION_NAME_COLUMN = 'adm3_name' 
 
-    # ── Shapefile Path ─────────────────────────────────────────
-    # Change this to DS shapefile path when available
-    SHAPEFILE_PATH = 'data/gampaha_divisions.shp'
+    # ── Supabase Storage ───────────────────────────────────────
+    SUPABASE_BUCKET = 'flood-data'
+    SHAPEFILE_KEY = 'gampaha_divisions.shp'
+    MODEL_KEY = 'flood_depth_model.pkl'
+    SCALER_KEY = 'flood_depth_scaler.pkl'
 
-    # ── Division Name Column ───────────────────────────────────
-    # Change this to match the column name in DS shapefile
-    # Common options: 'Name', 'NAME', 'DS_NAME', 'GN_NAME'
-    DIVISION_NAME_COLUMN = 'Name'
-
-    # ── Model Paths ────────────────────────────────────────────
-    DEPTH_MODEL_PATH  = 'data/flood_depth_model.pkl'
-    DEPTH_SCALER_PATH = 'data/flood_depth_scaler.pkl'
-
-    # ── Adaptive Thresholding Parameters ──────────────────────
-    BLOCK_SIZE = 11   # neighbourhood size (must be odd)
-    C_CONSTANT = 2    # constant subtracted from mean
-
+    # ── Adaptive Thresholding ─────────────────────────────────
+    BLOCK_SIZE  = 15
+    C_CONSTANT  = -0.1   # negative — lowers threshold so water pixels pass
+    SIGMA_SPACE = 1.5
+    SIGMA_RANGE = 0.2    # slightly wider spectral tolerance
+    
     # ── Priority Thresholds (metres) ──────────────────────────
-    HIGH_PRIORITY_DEPTH   = 1.5   # > 1.5m = High
-    MEDIUM_PRIORITY_DEPTH = 0.5   # 0.5-1.5m = Medium
-                                  # < 0.5m = Low
+    HIGH_PRIORITY_DEPTH = 1.5
+    MEDIUM_PRIORITY_DEPTH = 0.5
 
-    # ── Rainfall estimate for depth model ─────────────────────
-    # Based on CHIRPS data + Cyclone Ditwah records for Gampaha
+    # ── Rainfall ──────────────────────────────────────────────
     RAINFALL_MIN_MM = 150.0
     RAINFALL_MAX_MM = 375.0
 
-    # ── Output ─────────────────────────────────────────────────
-    OUTPUT_DIR     = 'outputs'
-    GEOJSON_OUTPUT = 'outputs/flood_results.geojson'
-    MAP_OUTPUT     = 'outputs/flood_map.png'
-
     # ── Supabase ───────────────────────────────────────────────
-    # Fill these in after setting up Supabase
     SUPABASE_URL = os.getenv('SUPABASE_URL', '')
     SUPABASE_KEY = os.getenv('SUPABASE_KEY', '')
     SUPABASE_TABLE = 'flood_detection_results'
 
-    
-# Module-level Supabase credentials for the download function
-SUPABASE_URL = os.getenv('SUPABASE_URL', '')
-SUPABASE_KEY = os.getenv('SUPABASE_KEY', '')
 
-import os
-
-def download_from_supabase(bucket_name, file_path, local_dir='data'):
-    """Download file from Supabase if not exists locally."""
+def get_supabase_client():
+    """Get Supabase client from environment."""
     from supabase import create_client
     
-    local_path = os.path.join(local_dir, file_path)
+    url = os.getenv('SUPABASE_URL')
+    key = os.getenv('SUPABASE_KEY')
     
-    # Return local path if file exists
-    if os.path.exists(local_path):
-        return local_path
+    if not url or not key:
+        raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set in .env")
     
-    # Download from Supabase
-    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-    os.makedirs(local_dir, exist_ok=True)
+    return create_client(url, key)
+
+
+def get_file_from_supabase(bucket_name, file_key):
+    """
+    Get file bytes directly from Supabase Storage.
+    Returns bytes, no local file created.
+    """
+    supabase = get_supabase_client()
     
-    with open(local_path, 'wb') as f:
-        data = supabase.storage.from_(bucket_name).download(file_path)
-        f.write(data)
-    
-    return local_path
+    try:
+        response = supabase.storage.from_(bucket_name).download(file_key)
+        print(f"   ✓ Retrieved {file_key} from Supabase")
+        return response
+    except Exception as e:
+        raise FileNotFoundError(
+            f"Cannot retrieve {file_key} from bucket '{bucket_name}': {str(e)}\n"
+            f"Ensure the file exists in Supabase Storage"
+        )
