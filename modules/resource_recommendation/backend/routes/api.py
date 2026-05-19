@@ -37,7 +37,7 @@ def initialize_module3(data_path):
     global preprocessor, predictor, causal_network
 
     print("\n" + "=" * 50)
-    print("🚀 INITIALIZING MODULE 3")
+    print(" INITIALIZING MODULE 3")
     print("=" * 50)
 
     preprocessor = ReliefDataPreprocessor(data_path)
@@ -50,7 +50,7 @@ def initialize_module3(data_path):
     causal_network.build_network(full_data)
     predictor.set_causal_network(causal_network)
 
-    print("✅ MODULE 3 READY")
+    print("MODULE 3 READY")
     return True
 
 

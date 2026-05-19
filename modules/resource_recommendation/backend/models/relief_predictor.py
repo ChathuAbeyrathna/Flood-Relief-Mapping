@@ -1,9 +1,3 @@
-"""
-Relief Resource Predictor Module
-UPDATED for new dataset with all relief items including sanitary
-FIXED: JSON serialization (returns Python int, not numpy int)
-"""
-
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
@@ -32,7 +26,7 @@ class ReliefPredictor:
     def set_causal_network(self, causal_network):
         """Set causal network for explainability"""
         self.causal_network = causal_network
-        print("✅ Causal network connected to predictor")
+        print("Causal network connected to predictor")
 
     def train_models(self, X_train, y_train, X_test=None, y_test=None):
         """Train multiple models for each relief item"""
@@ -85,9 +79,9 @@ class ReliefPredictor:
 
             self.models[target] = best_model
             joblib.dump(best_model, os.path.join(self.model_dir, f"{target.replace(' ', '_')}.pkl"))
-            print(f"✔ Best model: {best_name} ({best_score:.3f})")
+            print(f"Best model: {best_name} ({best_score:.3f})")
 
-        print("\n✅ Training completed")
+        print("\n Training completed")
 
     def predict(self, X_input):
         """Predict relief needs for given input"""
@@ -214,7 +208,7 @@ class ReliefPredictor:
     def load_models(self):
         """Load saved models from disk"""
         if not os.path.exists(self.model_dir):
-            print(f"⚠️ Model directory not found: {self.model_dir}")
+            print(f"Model directory not found: {self.model_dir}")
             return False
 
         loaded_count = 0
@@ -230,16 +224,16 @@ class ReliefPredictor:
                     if target not in self.target_columns:
                         self.target_columns.append(target)
                 except Exception as e:
-                    print(f"⚠️ Failed to load {filename}: {e}")
+                    print(f"Failed to load {filename}: {e}")
 
-        print(f"✅ Loaded {loaded_count} models")
+        print(f"Loaded {loaded_count} models")
         return loaded_count > 0
 
 
 # Test the predictor
 if __name__ == "__main__":
     print("=" * 60)
-    print("🧪 TESTING RELIEF PREDICTOR")
+    print("TESTING RELIEF PREDICTOR")
     print("=" * 60)
 
     # Create sample data for testing
@@ -266,10 +260,10 @@ if __name__ == "__main__":
         flood_severity='High'
     )
 
-    print("\n📊 Prediction Result:")
+    print("\nPrediction Result:")
     print(f"   Priority Level: {result['overall_priority']}")
     print(f"\n   Relief Items:")
     for item, details in result['predictions'].items():
         print(f"     - {item}: {details['quantity']} ({details['priority']})")
 
-    print("\n✅ Test completed!")
+    print("\nTest completed!")

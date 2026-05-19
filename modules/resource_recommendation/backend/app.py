@@ -8,10 +8,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from routes.api import api_bp, initialize_module3
 from database import get_flood_results, get_latest_summary
 
-# ============================================================
-# CLEAN WAY - Using relative path (works on any computer)
-# ============================================================
-# Go up 4 levels from backend to reach project root, then to interface/frontend
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..'))
 FRONTEND_PATH = os.path.join(PROJECT_ROOT, 'interface', 'frontend')
 
