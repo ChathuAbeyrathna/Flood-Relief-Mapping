@@ -1,3 +1,8 @@
+"""
+Relief Resource Predictor Module
+UPDATED: Female % column with SPACE
+"""
+
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
@@ -15,7 +20,10 @@ class ReliefPredictor:
     def __init__(self, model_dir='models_saved/'):
         self.model_dir = model_dir
         self.models = {}
-        self.feature_columns = ['Affected_Population', 'Children_%', 'Elderly_%', 'Severity_Code']
+        
+        # IMPORTANT: Column name is "Female %" with SPACE
+        self.feature_columns = ['Affected_Population', 'Children_%', 'Elderly_%', 'Female %', 'Severity_Code']
+        
         self.target_columns = None
         self.causal_network = None
         self.severity_map = {'Low': 1, 'Medium': 2, 'High': 3}
@@ -26,7 +34,7 @@ class ReliefPredictor:
     def set_causal_network(self, causal_network):
         """Set causal network for explainability"""
         self.causal_network = causal_network
-        print("Causal network connected to predictor")
+        print("✅ Causal network connected to predictor")
 
     def train_models(self, X_train, y_train, X_test=None, y_test=None):
         """Train multiple models for each relief item"""
@@ -79,9 +87,9 @@ class ReliefPredictor:
 
             self.models[target] = best_model
             joblib.dump(best_model, os.path.join(self.model_dir, f"{target.replace(' ', '_')}.pkl"))
-            print(f"Best model: {best_name} ({best_score:.3f})")
+            print(f"✔ Best model: {best_name} ({best_score:.3f})")
 
-        print("\n Training completed")
+        print("\n✅ Training completed")
 
     def predict(self, X_input):
         """Predict relief needs for given input"""
@@ -92,19 +100,21 @@ class ReliefPredictor:
         results = {}
         for target, model in self.models.items():
             pred = model.predict(X_input)[0]
-            # Convert numpy int to Python int (for JSON serialization)
             results[target] = int(max(0, round(pred)))
 
         return pd.DataFrame([results])
 
-    def predict_with_analysis(self, affected_population, children_pct, elderly_pct, flood_severity='Medium'):
-        """Predict relief needs with causal explanation"""
+    def predict_with_analysis(self, affected_population, children_pct, elderly_pct, female_pct, flood_severity='Medium'):
+        """
+        Predict relief needs with causal explanation
+        """
         severity_code = self.severity_map.get(flood_severity, 2)
 
         X_input = pd.DataFrame([{
             "Affected_Population": int(affected_population),
             "Children_%": float(children_pct),
             "Elderly_%": float(elderly_pct),
+            "Female %": float(female_pct),      # ← SPACE
             "Severity_Code": int(severity_code)
         }])
 
@@ -115,6 +125,7 @@ class ReliefPredictor:
                 "affected_population": int(affected_population),
                 "children_pct": float(children_pct),
                 "elderly_pct": float(elderly_pct),
+                "female_pct": float(female_pct),
                 "severity": flood_severity
             },
             "predictions": {},
@@ -124,11 +135,8 @@ class ReliefPredictor:
         # Priority logic based on quantities
         for col in preds.columns:
             value = preds[col].iloc[0]
-            
-            # Convert to Python int
             value = int(value)
 
-            # Determine priority
             if col in ['Water Bottles', 'Cooked Food Packs']:
                 if value > 100000:
                     priority = "Critical"
@@ -154,7 +162,7 @@ class ReliefPredictor:
                     priority = "Low"
 
             result["predictions"][col] = {
-                "quantity": int(value),  # Ensure Python int
+                "quantity": int(value),
                 "priority": priority
             }
 
@@ -208,7 +216,7 @@ class ReliefPredictor:
     def load_models(self):
         """Load saved models from disk"""
         if not os.path.exists(self.model_dir):
-            print(f"Model directory not found: {self.model_dir}")
+            print(f"⚠️ Model directory not found: {self.model_dir}")
             return False
 
         loaded_count = 0
@@ -224,23 +232,22 @@ class ReliefPredictor:
                     if target not in self.target_columns:
                         self.target_columns.append(target)
                 except Exception as e:
-                    print(f"Failed to load {filename}: {e}")
+                    print(f"⚠️ Failed to load {filename}: {e}")
 
-        print(f"Loaded {loaded_count} models")
+        print(f"✅ Loaded {loaded_count} models")
         return loaded_count > 0
 
 
-# Test the predictor
 if __name__ == "__main__":
     print("=" * 60)
-    print("TESTING RELIEF PREDICTOR")
+    print("🧪 TESTING RELIEF PREDICTOR")
     print("=" * 60)
 
-    # Create sample data for testing
     sample_X = pd.DataFrame({
         'Affected_Population': [10000, 5000, 20000],
         'Children_%': [0.25, 0.30, 0.20],
         'Elderly_%': [0.15, 0.10, 0.20],
+        'Female %': [0.52, 0.50, 0.48],      # ← SPACE
         'Severity_Code': [2, 1, 3]
     })
 
@@ -257,13 +264,14 @@ if __name__ == "__main__":
         affected_population=10000,
         children_pct=0.25,
         elderly_pct=0.15,
+        female_pct=0.52,
         flood_severity='High'
     )
 
-    print("\nPrediction Result:")
+    print("\n📊 Prediction Result:")
     print(f"   Priority Level: {result['overall_priority']}")
     print(f"\n   Relief Items:")
     for item, details in result['predictions'].items():
         print(f"     - {item}: {details['quantity']} ({details['priority']})")
 
-    print("\nTest completed!")
+    print("\n✅ Test completed!")

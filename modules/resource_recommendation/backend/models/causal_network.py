@@ -18,6 +18,7 @@ class CausalReliefNetwork:
             ('Children_Percentage', 'Baby_Formula_Need'),
             ('Elderly_Percentage', 'Milk_Powder_Need'),
             ('Elderly_Percentage', 'Medical_Need'),
+            ('Female_Percentage', 'Sanitation_Need'),
             ('Affected_Population', 'Water_Need'),
             ('Affected_Population', 'Food_Need'),
             ('Affected_Population', 'Sanitation_Need'),
@@ -73,6 +74,14 @@ class CausalReliefNetwork:
                 discretized_df['Elderly_%'], bins=bins, labels=labels, include_lowest=True
             )
         
+        # IMPORTANT: Column name is "Female %" with SPACE
+        if 'Female %' in discretized_df.columns:
+            bins = [0, 0.45, 0.50, 0.55, 1.0]
+            labels = ['Low', 'Normal', 'High', 'Very_High']
+            discretized_df['Female_Percentage'] = pd.cut(
+                discretized_df['Female %'], bins=bins, labels=labels, include_lowest=True
+            )
+        
         return discretized_df
     
     def build_network(self, training_data):
@@ -120,7 +129,7 @@ class CausalReliefNetwork:
         
         return self.model
     
-    def predict_relief_needs(self, affected_population, children_pct, elderly_pct, flood_severity='Medium'):
+    def predict_relief_needs(self, affected_population, children_pct, elderly_pct, female_pct, flood_severity='Medium'):
         if self.model is None:
             print("Network not built yet")
             return None
@@ -149,6 +158,16 @@ class CausalReliefNetwork:
         else:
             elderly_cat = 'High'
         
+        # Categorize female percentage
+        if female_pct <= 0.45:
+            female_cat = 'Low'
+        elif female_pct <= 0.50:
+            female_cat = 'Normal'
+        elif female_pct <= 0.55:
+            female_cat = 'High'
+        else:
+            female_cat = 'Very_High'
+        
         if flood_severity not in ['Low', 'Medium', 'High']:
             flood_severity = 'Medium'
         
@@ -162,6 +181,8 @@ class CausalReliefNetwork:
             evidence['Children_Percentage'] = children_cat
         if 'Elderly_Percentage' in self.model.nodes():
             evidence['Elderly_Percentage'] = elderly_cat
+        if 'Female_Percentage' in self.model.nodes():
+            evidence['Female_Percentage'] = female_cat
         
         query_vars = ['Water_Need', 'Food_Need', 'Sanitation_Need', 'Hygiene_Need', 'Baby_Formula_Need', 'Evacuation_Need']
         query_vars = [v for v in query_vars if v in self.model.nodes()]
@@ -169,14 +190,12 @@ class CausalReliefNetwork:
         print(f"\nEvidence: {evidence}")
         print(f"Query: {query_vars}")
         
-        # Query one variable at a time
         predictions = {}
         
         for var in query_vars:
             try:
                 result = self.inference.query(variables=[var], evidence=evidence)
                 
-                # Get the factor
                 if hasattr(result, 'values'):
                     factor = result
                 elif isinstance(result, list) and len(result) > 0:
@@ -185,7 +204,6 @@ class CausalReliefNetwork:
                     print(f"  Unexpected result type for {var}")
                     continue
                 
-                # Get values and flatten
                 values = factor.values
                 if values.ndim > 1:
                     values = values.flatten()
@@ -193,7 +211,6 @@ class CausalReliefNetwork:
                 max_idx = np.argmax(values)
                 probability = float(values[max_idx])
                 
-                # Get state names
                 try:
                     cpd = self.model.get_cpds(var)
                     state_names = cpd.state_names[var]
@@ -223,39 +240,40 @@ class CausalReliefNetwork:
         }
         
         explanation['reasoning_steps'].append(
-            f"Area has {input_data['affected_population']:,} affected people, "
-            f"with {input_data['children_pct']*100:.1f}% children and {input_data['elderly_pct']*100:.1f}% elderly."
+            f"📍 Area has {input_data['affected_population']:,} affected people, "
+            f"with {input_data['children_pct']*100:.1f}% children, {input_data['elderly_pct']*100:.1f}% elderly, "
+            f"and {input_data['female_pct']*100:.1f}% female."
         )
         
         if input_data['flood_severity'] == 'High':
-            explanation['reasoning_steps'].append("HIGH severity - substantial relief required immediately!")
+            explanation['reasoning_steps'].append("⚠️ HIGH severity - substantial relief required immediately!")
         elif input_data['flood_severity'] == 'Medium':
-            explanation['reasoning_steps'].append("Medium severity - moderate relief needed.")
+            explanation['reasoning_steps'].append("📋 Medium severity - moderate relief needed.")
         else:
-            explanation['reasoning_steps'].append("Low severity - basic relief sufficient.")
+            explanation['reasoning_steps'].append("✅ Low severity - basic relief sufficient.")
         
         if predictions:
             for var, pred in predictions.items():
                 if var == 'Water_Need':
                     explanation['reasoning_steps'].append(
-                        f"Water: {pred['most_likely']} priority ({pred['probability']*100:.1f}% confidence)"
+                        f"💧 Water: {pred['most_likely']} priority ({pred['probability']*100:.1f}% confidence)"
                     )
                     if pred['most_likely'] in ['High', 'Very_High']:
                         explanation['recommendations'].append("Deploy clean water immediately (3L/person/day)")
                         explanation['priority_level'] = 'High'
                 
                 elif var == 'Food_Need':
-                    explanation['reasoning_steps'].append(f"Food: {pred['most_likely']} priority")
+                    explanation['reasoning_steps'].append(f"🍚 Food: {pred['most_likely']} priority")
                     if pred['most_likely'] in ['High', 'Very_High']:
                         explanation['recommendations'].append("Distribute ready-to-eat food packs")
                 
                 elif var == 'Sanitation_Need':
-                    explanation['reasoning_steps'].append(f"Sanitary pads: {pred['most_likely']} priority")
+                    explanation['reasoning_steps'].append(f"🩸 Sanitary pads: {pred['most_likely']} priority")
                     if pred['most_likely'] in ['High', 'Very_High']:
                         explanation['recommendations'].append("Deploy sanitary pads immediately")
                 
                 elif var == 'Hygiene_Need':
-                    explanation['reasoning_steps'].append(f"Hygiene kits: {pred['most_likely']} priority")
+                    explanation['reasoning_steps'].append(f"🧼 Hygiene kits: {pred['most_likely']} priority")
                     if pred['most_likely'] in ['High', 'Very_High']:
                         explanation['recommendations'].append("Distribute soap, toothpaste, toothbrushes")
         
@@ -285,28 +303,35 @@ if __name__ == "__main__":
         affected_population=42105,
         children_pct=0.28,
         elderly_pct=0.13,
+        female_pct=0.52,
         flood_severity='High'
     )
     
     if predictions:
-        print("\nPrediction Results Summary:")
+        print("\n📊 Prediction Results Summary:")
         for var, pred in predictions.items():
             print(f"   {var}: {pred['most_likely']} (prob: {pred['probability']:.2f}, {pred['confidence']})")
     else:
-        print("\nNo predictions returned")
+        print("\n❌ No predictions returned")
     
     explanation = causal_network.get_explainable_recommendation(
-        input_data={'affected_population': 42105, 'children_pct': 0.28, 'elderly_pct': 0.13, 'flood_severity': 'High'},
+        input_data={
+            'affected_population': 42105, 
+            'children_pct': 0.28, 
+            'elderly_pct': 0.13,
+            'female_pct': 0.52,
+            'flood_severity': 'High'
+        },
         predictions=predictions
     )
     
-    print("\nEXPLANATION:")
+    print("\n💡 EXPLANATION:")
     print(f"   {explanation['summary']}")
     print("\n   Reasoning:")
     for step in explanation['reasoning_steps']:
-        print(f"     - {step}")
+        print(f"     • {step}")
     print("\n   Recommendations:")
     for rec in explanation['recommendations']:
-        print(f"     - {rec}")
+        print(f"     → {rec}")
     
-    print("\nTEST COMPLETE!")
+    print("\n✅ TEST COMPLETE!")
