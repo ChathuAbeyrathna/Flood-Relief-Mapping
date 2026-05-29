@@ -1,4 +1,9 @@
-from flask import Flask, render_template, jsonify, send_file
+"""
+Main Flask Application for Module 3
+Runs on port 5002
+"""
+
+from flask import Flask, jsonify
 from flask_cors import CORS
 import os
 import sys
@@ -6,75 +11,64 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from routes.api import api_bp, initialize_module3
-from database import get_flood_results, get_latest_summary
+from config import Config
 
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..'))
-FRONTEND_PATH = os.path.join(PROJECT_ROOT, 'interface', 'frontend')
-
-app = Flask(__name__, 
-            template_folder=FRONTEND_PATH,
-            static_folder=FRONTEND_PATH)
-
+# Create Flask app
+app = Flask(__name__)
 CORS(app)
 
+# Register API blueprint
 app.register_blueprint(api_bp, url_prefix='/api')
 
+# Configuration
 DATA_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
                          'data', 'Gampaha_DS_Flood_Emergency_Relief_2019_2025.xlsx')
 
 
 @app.route('/')
 def index():
-    return render_template('dashboard.html')
+    return jsonify({
+        'message': 'Module 3 - Relief Resource Recommendation API',
+        'version': '2.0.0',
+        'status': 'running',
+        'endpoints': {
+            'health': '/api/health',
+            'predict': '/api/predict/<division_name>',
+            'divisions': '/api/divisions'
+        },
+        'integration': {
+            'module1': 'Connected via Supabase',
+            'module2': 'Ready (mock mode active, switch to real data with USE_MOCK_DATA=False)'
+        }
+    })
 
 
 @app.route('/health')
 def health():
-    return jsonify({'status': 'healthy', 'port': 5001})
-
-
-@app.route('/geojson')
-def geojson():
-    try:
-        flood_data = get_flood_results()
-        geojson = {"type": "FeatureCollection", "features": []}
-        if flood_data:
-            for item in flood_data:
-                feature = {
-                    "type": "Feature",
-                    "geometry": item.get('geometry'),
-                    "properties": {
-                        "ds_division": item.get('ds_division') or item.get('name', 'Unknown'),
-                        "flood_area_ha": item.get('flood_area_ha', 0),
-                        "priority_label": item.get('priority_label', 'No Flood')
-                    }
-                }
-                geojson["features"].append(feature)
-        return jsonify(geojson)
-    except:
-        return jsonify({"features": []})
-
-
-@app.route('/results')
-def results():
-    try:
-        summary = get_latest_summary()
-        return jsonify({"success": True, "data": summary})
-    except:
-        return jsonify({"success": False, "data": {}})
+    return jsonify({'status': 'healthy', 'module': 'Module 3', 'port': Config.MODULE3_PORT})
 
 
 if __name__ == '__main__':
-    if os.path.exists(DATA_PATH):
-        initialize_module3(DATA_PATH)
-    else:
+    print("\n" + "=" * 70)
+    print("🌊 MODULE 3 - RELIEF RESOURCE RECOMMENDATION")
+    print("=" * 70)
+    print(f"📊 Data file: {DATA_PATH}")
+    print(f"🎭 Mock mode: {Config.USE_MOCK_DATA}")
+    print(f"   (Set USE_MOCK_DATA=False in .env when Module 2 is ready)")
+    print("=" * 70)
+    
+    if not os.path.exists(DATA_PATH):
         print(f"❌ Data file not found: {DATA_PATH}")
-
-    print("\n" + "=" * 50)
-    print("🌐 MODULE 3 RUNNING ON PORT 5001")
-    print("=" * 50)
-    print(f"📍 Dashboard: http://localhost:5001")
-    print(f"📍 Frontend folder: {FRONTEND_PATH}")
-    print("=" * 50)
-
-    app.run(host='0.0.0.0', port=5001, debug=True)
+        print("   Please place your Excel file in the data/ folder")
+    else:
+        initialize_module3(DATA_PATH)
+    
+    print("\n" + "=" * 70)
+    print(f"🌐 API Running on http://localhost:{Config.MODULE3_PORT}")
+    print("=" * 70)
+    print(f"📍 Health check: http://localhost:{Config.MODULE3_PORT}/health")
+    print(f"📍 Predict: http://localhost:{Config.MODULE3_PORT}/api/predict/Gampaha")
+    print(f"📍 Divisions: http://localhost:{Config.MODULE3_PORT}/api/divisions")
+    print("=" * 70)
+    
+    app.run(host='0.0.0.0', port=Config.MODULE3_PORT, debug=Config.DEBUG)

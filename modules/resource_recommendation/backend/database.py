@@ -1,62 +1,191 @@
 """
-Module 3 Database - Simple offline mode
-Will connect to Supabase when Modules 1 & 2 are ready
+Module 3 - Relief Predictions Database
+Supabase-only database operations (like Module 1)
 """
 
 import json
-import os
 from datetime import datetime
+from config import Config, get_supabase_client
 
 
-class Module3Database:
-
+class ReliefDatabase:
+    """Handles relief predictions in Supabase (similar to Module 1)"""
+    
     def __init__(self):
+        self.config = Config()
         self.client = None
-        print("✅ Module 3 running in offline mode")
-
-    def get_flood_results(self, event_date=None):
-        """Get flood detection results from local JSON (Module 1 output)"""
-        paths = [
-            '../outputs/flood_detection_results.json',
-            'outputs/flood_detection_results.json',
-            '../../outputs/flood_detection_results.json'
-        ]
-        for path in paths:
-            if os.path.exists(path):
-                try:
-                    with open(path, 'r') as f:
-                        data = json.load(f)
-                        if isinstance(data, dict) and 'divisions' in data:
-                            return data['divisions']
-                        elif isinstance(data, list):
-                            return data
-                        return []
-                except:
-                    pass
-        return []
-
-    def get_latest_summary(self):
-        flood_data = self.get_flood_results()
-        if not flood_data:
-            return {'total_flooded': 0, 'flood_percentage': 0, 'high_risk_areas': 0}
-        total = len(flood_data) if isinstance(flood_data, list) else 0
-        high_risk = 0
-        if isinstance(flood_data, list):
-            for d in flood_data:
-                if d.get('priority_label') == 'High' or d.get('priority') == 3:
-                    high_risk += 1
-        return {
-            'total_flooded': total,
-            'flood_percentage': round(total / 26 * 100, 1) if total > 0 else 0,
-            'high_risk_areas': high_risk,
-            'last_updated': datetime.now().isoformat()
+        self._connect()
+        
+        # Sample data for MOCK MODE (when Module 2 not ready)
+        self.sample_data = {
+            "Gampaha": {"affected_population": 42105, "children_pct": 0.28, "elderly_pct": 0.13, "female_pct": 0.52},
+            "Negombo": {"affected_population": 30574, "children_pct": 0.28, "elderly_pct": 0.12, "female_pct": 0.48},
+            "Ja Ela": {"affected_population": 38596, "children_pct": 0.29, "elderly_pct": 0.12, "female_pct": 0.50},
+            "Wattala": {"affected_population": 39874, "children_pct": 0.29, "elderly_pct": 0.12, "female_pct": 0.51},
+            "Katana": {"affected_population": 37110, "children_pct": 0.27, "elderly_pct": 0.14, "female_pct": 0.49},
+            "Kelaniya": {"affected_population": 35842, "children_pct": 0.26, "elderly_pct": 0.13, "female_pct": 0.47},
+            "Biyagama": {"affected_population": 32105, "children_pct": 0.26, "elderly_pct": 0.13, "female_pct": 0.48},
+            "Minuwangoda": {"affected_population": 28432, "children_pct": 0.27, "elderly_pct": 0.15, "female_pct": 0.46},
+            "Mahara": {"affected_population": 26398, "children_pct": 0.26, "elderly_pct": 0.14, "female_pct": 0.49},
+            "Dompe": {"affected_population": 24285, "children_pct": 0.25, "elderly_pct": 0.16, "female_pct": 0.47},
+            "Attanagalla": {"affected_population": 22596, "children_pct": 0.25, "elderly_pct": 0.15, "female_pct": 0.48},
+            "Mirigama": {"affected_population": 19874, "children_pct": 0.23, "elderly_pct": 0.17, "female_pct": 0.47},
+            "Divulapitiya": {"affected_population": 16873, "children_pct": 0.22, "elderly_pct": 0.18, "female_pct": 0.46},
+            "Colombo": {"affected_population": 31044, "children_pct": 0.27, "elderly_pct": 0.12, "female_pct": 0.49},
         }
 
+    def _connect(self):
+        """Connect to Supabase (like Module 1)"""
+        try:
+            self.client = get_supabase_client()
+            print("✅ Module 3 connected to Supabase")
+        except Exception as e:
+            print(f"⚠️ Cannot connect to Supabase: {e}")
+            self.client = None
 
-db_instance = Module3Database()
+    # ============================================================
+    # READ FROM MODULE 1 (Flood Detection)
+    # ============================================================
+    
+    def get_flood_severity(self, division_name, event_date=None):
+        """
+        Get flood severity from Module 1's table
+        Reads from: flood_detection_results
+        """
+        if self.client is None:
+            print(f"⚠️ No Supabase connection, using default 'Medium'")
+            return 'Medium'
+        
+        try:
+            query = self.client.table(self.config.FLOOD_TABLE).select('*')
+            query = query.eq(self.config.DIVISION_NAME_COLUMN_MODULE1, division_name)
+            
+            if event_date:
+                query = query.eq('event_date', event_date)
+            else:
+                query = query.order('created_at', desc=True).limit(1)
+            
+            response = query.execute()
+            
+            if response.data and len(response.data) > 0:
+                severity = response.data[0].get('priority_label', 'Medium')
+                print(f"✅ Flood severity for {division_name}: {severity}")
+                return severity
+            else:
+                print(f"⚠️ No flood data for {division_name}, using default 'Medium'")
+                return 'Medium'
+                
+        except Exception as e:
+            print(f"⚠️ Error getting flood severity: {e}")
+            return 'Medium'
 
-def get_flood_results():
-    return db_instance.get_flood_results()
+    # ============================================================
+    # READ FROM MODULE 2 (Population) - MOCK or REAL
+    # ============================================================
+    
+    def get_population_data(self, division_name, event_date=None):
+        """
+        Get population and demographics
+        Uses mock data if Module 2 not ready
+        """
+        if self.config.USE_MOCK_DATA:
+            print(f"📋 MOCK MODE: {division_name}")
+            if division_name in self.sample_data:
+                return self.sample_data[division_name]
+            return {'affected_population': 10000, 'children_pct': 0.25, 'elderly_pct': 0.15, 'female_pct': 0.50}
+        
+        # REAL MODE - when Module 2 is ready
+        try:
+            import pandas as pd
+            import glob
+            files = glob.glob(f"{self.config.MODULE2_DATA_PATH}/Master_Feature_Matrix_*.csv")
+            if files:
+                df = pd.read_csv(files[0])
+                row = df[df['Ds_Division_Name'] == division_name].iloc[0]
+                return {
+                    'affected_population': int(row['Affected_People']),
+                    'children_pct': float(row['Children_%']),
+                    'elderly_pct': float(row['Elderly_%']),
+                    'female_pct': float(row['Female_%'])
+                }
+        except Exception as e:
+            print(f"⚠️ Error reading Module 2: {e}")
+        
+        return {'affected_population': 10000, 'children_pct': 0.25, 'elderly_pct': 0.15, 'female_pct': 0.50}
 
-def get_latest_summary():
-    return db_instance.get_latest_summary()
+    # ============================================================
+    # SAVE TO MODULE 3 TABLE (Relief Predictions)
+    # ============================================================
+    
+    def save_prediction(self, division_name, input_data, predictions, overall_priority, explanation, event_date=None):
+        """
+        Save relief predictions to Supabase (like Module 1's save_results)
+        Table: relief_predictions
+        """
+        if self.client is None:
+            print(f"⚠️ Cannot save: No Supabase connection")
+            return False
+        
+        event_date = event_date or datetime.now().strftime('%Y-%m-%d')
+        
+        record = {
+            'ds_division': division_name,
+            'event_date': event_date,
+            'affected_population': input_data['affected_population'],
+            'children_percentage': input_data['children_percentage'],
+            'elderly_percentage': input_data['elderly_percentage'],
+            'female_percentage': input_data['female_percentage'],
+            'flood_severity': input_data['flood_severity'],
+            'overall_priority': overall_priority,
+            'relief_predictions': json.dumps(predictions),
+            'explanation': explanation,
+            'created_at': datetime.now().isoformat()
+        }
+        
+        try:
+            # Insert record
+            self.client.table(self.config.RELIEF_TABLE).insert(record).execute()
+            print(f"✅ Saved prediction for {division_name} to Supabase")
+            return True
+        except Exception as e:
+            print(f"❌ Failed to save: {e}")
+            return False
+
+    def get_predictions(self, division_name=None, event_date=None):
+        """
+        Fetch relief predictions from Supabase (like Module 1's get_latest_results)
+        """
+        if self.client is None:
+            return []
+        
+        try:
+            query = self.client.table(self.config.RELIEF_TABLE).select('*')
+            
+            if division_name:
+                query = query.eq('ds_division', division_name)
+            if event_date:
+                query = query.eq('event_date', event_date)
+            
+            query = query.order('created_at', desc=True)
+            
+            response = query.execute()
+            return response.data
+            
+        except Exception as e:
+            print(f"⚠️ Failed to fetch predictions: {e}")
+            return []
+
+    def get_division_list(self):
+        """Get list of all DS Divisions"""
+        if self.config.USE_MOCK_DATA:
+            return list(self.sample_data.keys())
+        else:
+            return [
+                "Gampaha", "Negombo", "Ja Ela", "Wattala", "Katana", "Kelaniya",
+                "Biyagama", "Minuwangoda", "Mahara", "Dompe", "Attanagalla",
+                "Mirigama", "Divulapitiya", "Colombo", "Kaduwela", "Moratuwa"
+            ]
+
+
+# Create singleton instance (like Module 1)
+db = ReliefDatabase()

@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+env/
+
+# Models
+models_saved/
+*.pkl
+
+# Data
+data/*.xlsx
+*.xlsx
+
+# Outputs
+outputs/
+uploads/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log

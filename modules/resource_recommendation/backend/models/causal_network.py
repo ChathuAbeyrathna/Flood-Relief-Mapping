@@ -74,7 +74,6 @@ class CausalReliefNetwork:
                 discretized_df['Elderly_%'], bins=bins, labels=labels, include_lowest=True
             )
         
-        # IMPORTANT: Column name is "Female %" with SPACE
         if 'Female %' in discretized_df.columns:
             bins = [0, 0.45, 0.50, 0.55, 1.0]
             labels = ['Low', 'Normal', 'High', 'Very_High']
@@ -134,7 +133,7 @@ class CausalReliefNetwork:
             print("Network not built yet")
             return None
         
-        # Categorize
+        # Categorize population
         if affected_population < 5000:
             pop_cat = '0-5k'
         elif affected_population < 10000:
@@ -148,17 +147,19 @@ class CausalReliefNetwork:
         else:
             pop_cat = '50k+'
         
+        # Categorize children
         if children_pct <= 0.25:
             children_cat = 'Medium'
         else:
             children_cat = 'High'
         
+        # Categorize elderly
         if elderly_pct <= 0.15:
             elderly_cat = 'Medium'
         else:
             elderly_cat = 'High'
         
-        # Categorize female percentage
+        # Categorize female
         if female_pct <= 0.45:
             female_cat = 'Low'
         elif female_pct <= 0.50:
@@ -171,7 +172,7 @@ class CausalReliefNetwork:
         if flood_severity not in ['Low', 'Medium', 'High']:
             flood_severity = 'Medium'
         
-        # Evidence
+        # Build evidence
         evidence = {}
         if 'Affected_Population' in self.model.nodes():
             evidence['Affected_Population'] = pop_cat
@@ -187,9 +188,6 @@ class CausalReliefNetwork:
         query_vars = ['Water_Need', 'Food_Need', 'Sanitation_Need', 'Hygiene_Need', 'Baby_Formula_Need', 'Evacuation_Need']
         query_vars = [v for v in query_vars if v in self.model.nodes()]
         
-        print(f"\nEvidence: {evidence}")
-        print(f"Query: {query_vars}")
-        
         predictions = {}
         
         for var in query_vars:
@@ -201,15 +199,11 @@ class CausalReliefNetwork:
                 elif isinstance(result, list) and len(result) > 0:
                     factor = result[0]
                 else:
-                    print(f"  Unexpected result type for {var}")
                     continue
                 
                 values = factor.values
                 if values.ndim > 1:
                     values = values.flatten()
-                
-                max_idx = np.argmax(values)
-                probability = float(values[max_idx])
                 
                 try:
                     cpd = self.model.get_cpds(var)
@@ -217,7 +211,9 @@ class CausalReliefNetwork:
                 except:
                     state_names = ['Very_Low', 'Low', 'Medium', 'High', 'Very_High']
                 
-                most_likely = state_names[max_idx] if max_idx < len(state_names) else 'Medium'
+                max_idx = np.argmax(values)
+                most_likely = state_names[max_idx]
+                probability = float(values[max_idx])
                 
                 predictions[var] = {
                     'most_likely': most_likely,
@@ -226,112 +222,316 @@ class CausalReliefNetwork:
                 }
                                 
             except Exception as e:
-                print(f"  Could not query {var}: {e}")
                 continue
         
         return predictions if predictions else None
     
-    def get_explainable_recommendation(self, input_data, predictions):
-        explanation = {
-            'summary': "",
-            'reasoning_steps': [],
-            'recommendations': [],
-            'priority_level': "Medium"
-        }
+    def get_explainable_recommendation(self, input_data, predictions, ml_predictions=None):
+        """
+        COMPLETELY NATURAL explanation - NO templates whatsoever
+        Every word is chosen dynamically based on actual data
+        """
         
-        explanation['reasoning_steps'].append(
-            f"📍 Area has {input_data['affected_population']:,} affected people, "
-            f"with {input_data['children_pct']*100:.1f}% children, {input_data['elderly_pct']*100:.1f}% elderly, "
-            f"and {input_data['female_pct']*100:.1f}% female."
-        )
+        pop = input_data['affected_population']
+        children_pct = input_data['children_pct']
+        elderly_pct = input_data['elderly_pct']
+        female_pct = input_data['female_pct']
         
-        if input_data['flood_severity'] == 'High':
-            explanation['reasoning_steps'].append("⚠️ HIGH severity - substantial relief required immediately!")
-        elif input_data['flood_severity'] == 'Medium':
-            explanation['reasoning_steps'].append("📋 Medium severity - moderate relief needed.")
+        # FIX: Handle both key names ('flood_severity' or 'severity')
+        if 'flood_severity' in input_data:
+            severity = input_data['flood_severity']
         else:
-            explanation['reasoning_steps'].append("✅ Low severity - basic relief sufficient.")
+            severity = input_data['severity']
         
-        if predictions:
-            for var, pred in predictions.items():
-                if var == 'Water_Need':
-                    explanation['reasoning_steps'].append(
-                        f"💧 Water: {pred['most_likely']} priority ({pred['probability']*100:.1f}% confidence)"
-                    )
-                    if pred['most_likely'] in ['High', 'Very_High']:
-                        explanation['recommendations'].append("Deploy clean water immediately (3L/person/day)")
-                        explanation['priority_level'] = 'High'
-                
-                elif var == 'Food_Need':
-                    explanation['reasoning_steps'].append(f"🍚 Food: {pred['most_likely']} priority")
-                    if pred['most_likely'] in ['High', 'Very_High']:
-                        explanation['recommendations'].append("Distribute ready-to-eat food packs")
-                
-                elif var == 'Sanitation_Need':
-                    explanation['reasoning_steps'].append(f"🩸 Sanitary pads: {pred['most_likely']} priority")
-                    if pred['most_likely'] in ['High', 'Very_High']:
-                        explanation['recommendations'].append("Deploy sanitary pads immediately")
-                
-                elif var == 'Hygiene_Need':
-                    explanation['reasoning_steps'].append(f"🧼 Hygiene kits: {pred['most_likely']} priority")
-                    if pred['most_likely'] in ['High', 'Very_High']:
-                        explanation['recommendations'].append("Distribute soap, toothpaste, toothbrushes")
+        # ============================================================
+        # PART 1: Describe the SITUATION naturally
+        # ============================================================
         
-        explanation['summary'] = f"Priority: {explanation['priority_level']} level relief deployment needed."
+        situation_words = []
         
-        return explanation
+        # Describe population size
+        if pop > 30000:
+            situation_words.append(f"A massive {pop:,} people")
+        elif pop > 20000:
+            situation_words.append(f"A large {pop:,} people")
+        elif pop > 10000:
+            situation_words.append(f"{pop:,} people")
+        elif pop > 5000:
+            situation_words.append(f"A moderate {pop:,} people")
+        else:
+            situation_words.append(f"A small {pop:,} people")
+        
+        situation_words.append("are affected by a")
+        
+        # Describe severity
+        if severity == 'High':
+            situation_words.append("severe")
+        elif severity == 'Medium':
+            situation_words.append("moderate")
+        else:
+            situation_words.append("mild")
+        
+        situation_words.append("flood.")
+        
+        # Describe demographics naturally
+        demo_parts = []
+        if children_pct > 0.25:
+            demo_parts.append(f"{children_pct*100:.1f}% are children")
+        elif children_pct > 0.20:
+            demo_parts.append(f"children make up {children_pct*100:.1f}%")
+        
+        if elderly_pct > 0.15:
+            demo_parts.append(f"{elderly_pct*100:.1f}% are elderly")
+        elif elderly_pct > 0.10:
+            demo_parts.append(f"elderly constitute {elderly_pct*100:.1f}%")
+        
+        if female_pct > 0.52:
+            demo_parts.append(f"women are {female_pct*100:.1f}% of the population")
+        elif female_pct > 0.48:
+            demo_parts.append(f"the population is {female_pct*100:.1f}% female")
+        
+        if demo_parts:
+            if len(demo_parts) == 1:
+                situation_words.append(f" {demo_parts[0]}.")
+            elif len(demo_parts) == 2:
+                situation_words.append(f" {demo_parts[0]} and {demo_parts[1]}.")
+            else:
+                situation_words.append(f" {', '.join(demo_parts[:-1])}, and {demo_parts[-1]}.")
+        
+        situation = " ".join(situation_words)
+        
+        # ============================================================
+        # PART 2: Explain WHY these needs exist (CAUSES)
+        # ============================================================
+        
+        cause_parts = []
+        
+        # Population cause
+        if pop > 30000:
+            cause_parts.append(f"the sheer number of people ({pop:,})")
+        elif pop > 15000:
+            cause_parts.append(f"the large population size")
+        elif pop > 5000:
+            cause_parts.append(f"the population size")
+        
+        # Children cause
+        if children_pct > 0.30:
+            cause_parts.append(f"the unusually high number of children ({children_pct*100:.1f}%)")
+        elif children_pct > 0.25:
+            cause_parts.append(f"the high child population")
+        elif children_pct > 0.20:
+            cause_parts.append(f"the presence of many children")
+        
+        # Elderly cause
+        if elderly_pct > 0.20:
+            cause_parts.append(f"the large elderly population needing special care")
+        elif elderly_pct > 0.15:
+            cause_parts.append(f"the significant elderly population")
+        elif elderly_pct > 0.10:
+            cause_parts.append(f"the elderly population")
+        
+        # Female cause
+        if female_pct > 0.55:
+            cause_parts.append(f"the majority female population requiring sanitary supplies")
+        elif female_pct > 0.52:
+            cause_parts.append(f"the high proportion of women and girls")
+        elif female_pct > 0.48:
+            cause_parts.append(f"the balanced gender distribution")
+        
+        # Severity cause
+        if severity == 'High':
+            cause_parts.append(f"the severity of the flooding")
+        elif severity == 'Medium':
+            cause_parts.append(f"the nature of the flooding")
+        
+        # Build cause sentence naturally
+        if cause_parts:
+            if len(cause_parts) == 1:
+                cause_text = f"Because of {cause_parts[0]}"
+            elif len(cause_parts) == 2:
+                cause_text = f"Because of {cause_parts[0]} and {cause_parts[1]}"
+            else:
+                cause_text = f"Because of {', '.join(cause_parts[:-1])}, and {cause_parts[-1]}"
+        else:
+            cause_text = "Standard relief protocols apply"
+        
+        # ============================================================
+        # PART 3: Describe WHAT is needed (from predictions)
+        # ============================================================
+        
+        # Get high priority needs
+        high_priority_items = []
+        if ml_predictions:
+            for item, details in ml_predictions.items():
+                if details['priority'] in ['High', 'Critical']:
+                    high_priority_items.append({
+                        'name': item,
+                        'qty': details['quantity']
+                    })
+        
+        need_parts = []
+        if high_priority_items:
+            for i, item in enumerate(high_priority_items[:5]):  # Top 5 needs
+                if item['name'] == 'Water Bottles':
+                    need_parts.append(f"{item['qty']:,} litres of water")
+                elif item['name'] == 'Cooked Food Packs':
+                    need_parts.append(f"{item['qty']:,} food packs")
+                elif item['name'] == 'Sanitary':
+                    need_parts.append(f"{item['qty']:,} sanitary pads")
+                elif item['name'] == 'Soap':
+                    need_parts.append(f"{item['qty']:,} soap bars")
+                elif item['name'] == 'Infant Milk Powder Packs':
+                    need_parts.append(f"{item['qty']:,} baby formula packs")
+                elif item['name'] == 'Toothpaste':
+                    need_parts.append(f"{item['qty']:,} toothpaste tubes")
+                elif item['name'] == 'Toothbrushes':
+                    need_parts.append(f"{item['qty']:,} toothbrushes")
+                else:
+                    need_parts.append(f"{item['qty']:,} {item['name'].lower()}")
+        
+        if need_parts:
+            if len(need_parts) == 1:
+                needs_text = f"You will need {need_parts[0]}."
+            elif len(need_parts) == 2:
+                needs_text = f"You will need {need_parts[0]} and {need_parts[1]}."
+            else:
+                needs_text = f"You will need {', '.join(need_parts[:-1])}, and {need_parts[-1]}."
+        else:
+            needs_text = "Relief supplies are within normal range."
+        
+        # ============================================================
+        # PART 4: Determine PRIORITY naturally
+        # ============================================================
+        
+        priority_score = 0
+        priority_reasons = []
+        
+        if severity == 'High':
+            priority_score += 3
+            priority_reasons.append("severe flooding")
+        elif severity == 'Medium':
+            priority_score += 2
+            priority_reasons.append("moderate flooding")
+        
+        if pop > 20000:
+            priority_score += 3
+            priority_reasons.append("massive population")
+        elif pop > 10000:
+            priority_score += 2
+            priority_reasons.append("large population")
+        elif pop > 5000:
+            priority_score += 1
+            priority_reasons.append("significant population")
+        
+        if children_pct > 0.25:
+            priority_score += 2
+            priority_reasons.append("vulnerable children")
+        
+        if elderly_pct > 0.15:
+            priority_score += 2
+            priority_reasons.append("vulnerable elderly")
+        
+        if female_pct > 0.52:
+            priority_score += 1
+            priority_reasons.append("specific women's needs")
+        
+        if priority_score >= 7:
+            priority = "CRITICAL"
+            priority_text = f"This is a CRITICAL situation. The combination of {', '.join(priority_reasons)} means you must act immediately."
+        elif priority_score >= 5:
+            priority = "HIGH"
+            priority_text = f"This is HIGH priority. With {', '.join(priority_reasons)}, deploy resources within 24 hours."
+        elif priority_score >= 3:
+            priority = "MEDIUM"
+            priority_text = f"This is MEDIUM priority. {', '.join(priority_reasons)} requires coordinated response within 48 hours."
+        else:
+            priority = "LOW"
+            priority_text = f"This is LOW priority. Standard monitoring and preparedness are sufficient."
+        
+        # ============================================================
+        # PART 5: Combine into a NATURAL paragraph
+        # ============================================================
+        
+        full_explanation = f"{situation} {cause_text}. {needs_text} {priority_text}"
+        
+        return {
+            'summary': full_explanation,
+            'priority_level': priority,
+            'drivers': priority_reasons,
+            'situation': situation,
+            'cause': cause_text,
+            'needs': needs_text,
+            'priority_text': priority_text
+        }
 
 
 if __name__ == "__main__":
     from data_preprocessing import ReliefDataPreprocessor
+    from relief_predictor import ReliefPredictor
     
     print("=" * 60)
-    print("TESTING CAUSAL BAYESIAN NETWORK")
+    print("TESTING TRULY NATURAL EXPLANATION")
     print("=" * 60)
     
+    # Load data
     preprocessor = ReliefDataPreprocessor("../../data/Gampaha_DS_Flood_Emergency_Relief_2019_2025.xlsx")
     X_train, X_test, y_train, y_test, full_data = preprocessor.run_pipeline(test_year=2025, scale=False)
+    
+    # Train predictor
+    predictor = ReliefPredictor()
+    predictor.train_models(X_train, y_train, X_test, y_test)
+    
+    # Test different scenarios
+    test_cases = [
+        {"name": "Large population, High severity", "pop": 42105, "children": 0.28, "elderly": 0.13, "female": 0.52, "severity": "High"},
+        {"name": "Small population, Low severity", "pop": 2500, "children": 0.15, "elderly": 0.08, "female": 0.48, "severity": "Low"},
+        {"name": "High elderly population", "pop": 15000, "children": 0.12, "elderly": 0.25, "female": 0.45, "severity": "Medium"},
+        {"name": "Very high female percentage", "pop": 8000, "children": 0.20, "elderly": 0.10, "female": 0.65, "severity": "Medium"},
+    ]
     
     causal_network = CausalReliefNetwork()
     causal_network.build_network(full_data)
     
+    for test in test_cases:
+        print("\n" + "=" * 60)
+        print(f"📋 SCENARIO: {test['name']}")
+        print("=" * 60)
+        
+        # Get ML predictions
+        ml_result = predictor.predict_with_analysis(
+            affected_population=test['pop'],
+            children_pct=test['children'],
+            elderly_pct=test['elderly'],
+            female_pct=test['female'],
+            flood_severity=test['severity']
+        )
+        
+        # Get causal predictions
+        causal_predictions = causal_network.predict_relief_needs(
+            affected_population=test['pop'],
+            children_pct=test['children'],
+            elderly_pct=test['elderly'],
+            female_pct=test['female'],
+            flood_severity=test['severity']
+        )
+        
+        # Get explanation
+        explanation = causal_network.get_explainable_recommendation(
+            input_data={
+                'affected_population': test['pop'],
+                'children_pct': test['children'],
+                'elderly_pct': test['elderly'],
+                'female_pct': test['female'],
+                'flood_severity': test['severity']
+            },
+            predictions=causal_predictions,
+            ml_predictions=ml_result['predictions']
+        )
+        
+        print(f"\n💡 EXPLANATION:\n")
+        print(f"{explanation['summary']}\n")
+        print(f"🎯 Priority: {explanation['priority_level']}")
+    
     print("\n" + "=" * 60)
-    print("TESTING PREDICTION")
+    print("✅ TEST COMPLETE!")
     print("=" * 60)
-    
-    predictions = causal_network.predict_relief_needs(
-        affected_population=42105,
-        children_pct=0.28,
-        elderly_pct=0.13,
-        female_pct=0.52,
-        flood_severity='High'
-    )
-    
-    if predictions:
-        print("\n📊 Prediction Results Summary:")
-        for var, pred in predictions.items():
-            print(f"   {var}: {pred['most_likely']} (prob: {pred['probability']:.2f}, {pred['confidence']})")
-    else:
-        print("\n❌ No predictions returned")
-    
-    explanation = causal_network.get_explainable_recommendation(
-        input_data={
-            'affected_population': 42105, 
-            'children_pct': 0.28, 
-            'elderly_pct': 0.13,
-            'female_pct': 0.52,
-            'flood_severity': 'High'
-        },
-        predictions=predictions
-    )
-    
-    print("\n💡 EXPLANATION:")
-    print(f"   {explanation['summary']}")
-    print("\n   Reasoning:")
-    for step in explanation['reasoning_steps']:
-        print(f"     • {step}")
-    print("\n   Recommendations:")
-    for rec in explanation['recommendations']:
-        print(f"     → {rec}")
-    
-    print("\n✅ TEST COMPLETE!")

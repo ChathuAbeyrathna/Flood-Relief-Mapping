@@ -1,8 +1,3 @@
-"""
-Relief Resource Predictor Module
-UPDATED: Female % column with SPACE
-"""
-
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
@@ -20,10 +15,7 @@ class ReliefPredictor:
     def __init__(self, model_dir='models_saved/'):
         self.model_dir = model_dir
         self.models = {}
-        
-        # IMPORTANT: Column name is "Female %" with SPACE
         self.feature_columns = ['Affected_Population', 'Children_%', 'Elderly_%', 'Female %', 'Severity_Code']
-        
         self.target_columns = None
         self.causal_network = None
         self.severity_map = {'Low': 1, 'Medium': 2, 'High': 3}
@@ -32,12 +24,10 @@ class ReliefPredictor:
             os.makedirs(model_dir)
 
     def set_causal_network(self, causal_network):
-        """Set causal network for explainability"""
         self.causal_network = causal_network
-        print("✅ Causal network connected to predictor")
+        print("✅ Causal network connected")
 
     def train_models(self, X_train, y_train, X_test=None, y_test=None):
-        """Train multiple models for each relief item"""
         print("\n" + "=" * 50)
         print("MODEL TRAINING")
         print("=" * 50)
@@ -92,7 +82,6 @@ class ReliefPredictor:
         print("\n✅ Training completed")
 
     def predict(self, X_input):
-        """Predict relief needs for given input"""
         if isinstance(X_input, dict):
             X_input = pd.DataFrame([X_input])
         X_input = X_input[self.feature_columns]
@@ -105,16 +94,13 @@ class ReliefPredictor:
         return pd.DataFrame([results])
 
     def predict_with_analysis(self, affected_population, children_pct, elderly_pct, female_pct, flood_severity='Medium'):
-        """
-        Predict relief needs with causal explanation
-        """
         severity_code = self.severity_map.get(flood_severity, 2)
 
         X_input = pd.DataFrame([{
             "Affected_Population": int(affected_population),
             "Children_%": float(children_pct),
             "Elderly_%": float(elderly_pct),
-            "Female %": float(female_pct),      # ← SPACE
+            "Female %": float(female_pct),
             "Severity_Code": int(severity_code)
         }])
 
@@ -132,7 +118,6 @@ class ReliefPredictor:
             "overall_priority": "Medium"
         }
 
-        # Priority logic based on quantities
         for col in preds.columns:
             value = preds[col].iloc[0]
             value = int(value)
@@ -166,7 +151,6 @@ class ReliefPredictor:
                 "priority": priority
             }
 
-        # Set overall priority
         priorities = [p['priority'] for p in result['predictions'].values()]
         if 'Critical' in priorities:
             result['overall_priority'] = 'Critical'
@@ -179,44 +163,8 @@ class ReliefPredictor:
 
         return result
 
-    def evaluate(self, X_test, y_test):
-        """Evaluate model performance"""
-        print("\n" + "=" * 50)
-        print("MODEL EVALUATION")
-        print("=" * 50)
-
-        X_test = X_test[self.feature_columns]
-        results = {}
-
-        for target in self.target_columns:
-            model = self.models[target]
-            preds = model.predict(X_test)
-
-            mae = mean_absolute_error(y_test[target], preds)
-            rmse = np.sqrt(mean_squared_error(y_test[target], preds))
-            r2 = r2_score(y_test[target], preds)
-
-            safe_mape = np.mean(np.abs((y_test[target] - preds) / np.maximum(y_test[target], 1))) * 100
-
-            results[target] = {
-                "MAE": float(round(mae, 2)),
-                "RMSE": float(round(rmse, 2)),
-                "R2": float(round(r2, 3)),
-                "MAPE": float(round(safe_mape, 2))
-            }
-
-            print(f"\n{target}")
-            print(f" MAE : {mae:.2f}")
-            print(f" RMSE: {rmse:.2f}")
-            print(f" R2  : {r2:.3f}")
-            print(f" MAPE: {safe_mape:.1f}%")
-
-        return results
-
     def load_models(self):
-        """Load saved models from disk"""
         if not os.path.exists(self.model_dir):
-            print(f"⚠️ Model directory not found: {self.model_dir}")
             return False
 
         loaded_count = 0
@@ -236,42 +184,3 @@ class ReliefPredictor:
 
         print(f"✅ Loaded {loaded_count} models")
         return loaded_count > 0
-
-
-if __name__ == "__main__":
-    print("=" * 60)
-    print("🧪 TESTING RELIEF PREDICTOR")
-    print("=" * 60)
-
-    sample_X = pd.DataFrame({
-        'Affected_Population': [10000, 5000, 20000],
-        'Children_%': [0.25, 0.30, 0.20],
-        'Elderly_%': [0.15, 0.10, 0.20],
-        'Female %': [0.52, 0.50, 0.48],      # ← SPACE
-        'Severity_Code': [2, 1, 3]
-    })
-
-    sample_y = pd.DataFrame({
-        'Water Bottles': [30000, 15000, 60000],
-        'Cooked Food Packs': [10000, 5000, 20000],
-        'Soap': [300, 150, 600]
-    })
-
-    predictor = ReliefPredictor(model_dir='test_models/')
-    predictor.train_models(sample_X, sample_y)
-
-    result = predictor.predict_with_analysis(
-        affected_population=10000,
-        children_pct=0.25,
-        elderly_pct=0.15,
-        female_pct=0.52,
-        flood_severity='High'
-    )
-
-    print("\n📊 Prediction Result:")
-    print(f"   Priority Level: {result['overall_priority']}")
-    print(f"\n   Relief Items:")
-    for item, details in result['predictions'].items():
-        print(f"     - {item}: {details['quantity']} ({details['priority']})")
-
-    print("\n✅ Test completed!")
