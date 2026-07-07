@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flood Detection Dashboard - Module 1</title>
+    <title>Flood Relief Management System - Complete Dashboard</title>
 
     <!-- Leaflet for maps -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -57,6 +56,10 @@
             padding: 0.4rem 1rem;
             border-radius: 20px;
             font-size: 0.8rem;
+        }
+
+        .status-badge.module3 {
+            background: #1a6b4a;
         }
 
         .btn-upload {
@@ -159,6 +162,61 @@
             color: white;
         }
 
+        .priority-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .priority-Critical { background: #dc2626; color: white; }
+        .priority-High { background: #f97316; color: white; }
+        .priority-Medium { background: #eab308; color: white; }
+        .priority-Low { background: #22c55e; color: white; }
+
+        .relief-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.6rem;
+            margin-top: 0.8rem;
+        }
+
+        .relief-item {
+            background: #f8f9fa;
+            padding: 0.6rem;
+            border-radius: 8px;
+            border-left: 3px solid #1a6b4a;
+        }
+
+        .relief-name {
+            font-size: 0.75rem;
+            color: #555;
+            margin-bottom: 0.2rem;
+        }
+
+        .relief-quantity {
+            font-size: 1rem;
+            font-weight: bold;
+            color: #0f3b2c;
+        }
+
+        .causal-box {
+            background: #fef3c7;
+            padding: 0.8rem;
+            border-radius: 10px;
+            margin: 0.8rem 0;
+            border-left: 4px solid #f59e0b;
+        }
+
+        .reasoning-step {
+            padding: 0.4rem;
+            margin: 0.4rem 0;
+            background: white;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+
         .empty-state {
             text-align: center;
             padding: 3rem 1rem;
@@ -172,35 +230,28 @@
             display: block;
         }
 
-        .empty-state p {
-            margin: 0.5rem 0;
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
         }
 
-        .layer-control {
-            padding: 0.5rem;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 10px;
-            margin: 0.5rem;
+        .loading i {
+            font-size: 2rem;
+            animation: spin 1s linear infinite;
         }
 
-        .refresh-btn {
-            background: #1a6b4a;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 1rem;
             border-radius: 8px;
-            cursor: pointer;
-            width: 100%;
-            font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            margin-top: 0.5rem;
-        }
-
-        .refresh-btn:hover {
-            background: #0f3b2c;
+            margin: 1rem 0;
         }
 
         .info-panel::-webkit-scrollbar {
@@ -220,6 +271,9 @@
             .dashboard-container {
                 flex-direction: column;
             }
+            .map-panel {
+                height: 50vh;
+            }
 
             .map-panel {
                 height: 50vh;
@@ -236,12 +290,16 @@
     <div class="header">
         <h1>
             <i class="fas fa-water"></i>
-            Flood Detection Dashboard
+            Flood Relief Management System
         </h1>
         <div class="header-actions">
-            <span class="status-badge" id="apiStatus">
+            <span class="status-badge" id="module1Status">
                 <i class="fas fa-circle" style="color: #f97316; font-size: 0.7rem;"></i>
-                Checking API...
+                Module 1: Checking...
+            </span>
+            <span class="status-badge module3" id="module3Status">
+                <i class="fas fa-circle" style="color: #f97316; font-size: 0.7rem;"></i>
+                Module 3: Checking...
             </span>
             <a href="upload.html" class="btn-upload">
                 <i class="fas fa-upload"></i> Upload New Data
@@ -260,26 +318,40 @@
                 <div id="statsContent">
                     <div class="empty-state">
                         <i class="fas fa-satellite-dish"></i>
-                        <p><strong>No data loaded</strong></p>
-                        <p>Click "Upload New Data" to process satellite imagery</p>
+                        <p><strong>No flood data loaded</strong></p>
+                        <p>Upload satellite imagery to get started</p>
                         <a href="upload.html" class="btn-upload" style="display: inline-flex; margin-top: 1rem;">
-                            <i class="fas fa-upload"></i> Go to Upload
+                            <i class="fas fa-upload"></i> Upload Data
                         </a>
                     </div>
                 </div>
             </div>
 
+            <!-- Relief Recommendations Panel (Module 3) -->
+            <div class="panel-section" id="reliefPanel">
+                <h3><i class="fas fa-hands-helping"></i> Relief Recommendations</h3>
+                <div id="reliefContent">
+                    <div class="empty-state">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <p><strong>Click on any flooded area</strong></p>
+                        <p>Select a division on the map to see relief recommendations</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Legend Panel -->
             <div class="panel-section">
                 <h3><i class="fas fa-info-circle"></i> Legend</h3>
                 <div id="legendContent">
                     <p style="color: #666; font-size: 0.9rem;">
-                        <i class="fas fa-circle" style="color: #dc2626;"></i> Flooded Areas<br>
-                        <i class="fas fa-circle" style="color: #f97316;"></i> High Risk Zones<br>
-                        <i class="fas fa-circle" style="color: #22c55e;"></i> Safe Areas
+                        <i class="fas fa-circle" style="color: #dc2626;"></i> High Priority (Flooded)<br>
+                        <i class="fas fa-circle" style="color: #f97316;"></i> Medium Priority<br>
+                        <i class="fas fa-circle" style="color: #eab308;"></i> Low Priority<br>
+                        <i class="fas fa-circle" style="color: #22c55e;"></i> No Flood
                     </p>
                 </div>
                 <button class="refresh-btn" onclick="loadResults()">
-                    <i class="fas fa-sync-alt"></i> Refresh Data
+                    <i class="fas fa-sync-alt"></i> Refresh Flood Data
                 </button>
             </div>
         </div>
@@ -297,28 +369,170 @@
 
         var floodLayer = null;
 
-        // Check API health
-        async function checkAPIStatus() {
-            const statusBadge = document.getElementById('apiStatus');
+        // Division coordinates (approximate centers)
+        var divisions = [
+            { name: "Gampaha", lat: 7.09, lng: 79.99 },
+            { name: "Negombo", lat: 7.21, lng: 79.84 },
+            { name: "Ja Ela", lat: 7.08, lng: 79.89 },
+            { name: "Wattala", lat: 6.98, lng: 79.90 },
+            { name: "Katana", lat: 7.26, lng: 79.90 },
+            { name: "Kelaniya", lat: 6.95, lng: 79.92 },
+            { name: "Biyagama", lat: 6.95, lng: 80.00 },
+            { name: "Minuwangoda", lat: 7.18, lng: 79.96 },
+            { name: "Mahara", lat: 7.08, lng: 79.95 },
+            { name: "Dompe", lat: 7.05, lng: 80.08 },
+            { name: "Attanagalla", lat: 7.12, lng: 80.10 },
+            { name: "Mirigama", lat: 7.24, lng: 80.13 },
+            { name: "Divulapitiya", lat: 7.20, lng: 80.01 }
+        ];
+
+        // ============================================================
+        // CHECK API STATUS
+        // ============================================================
+
+        async function checkModule1Status() {
+            const statusBadge = document.getElementById('module1Status');
             try {
                 const response = await fetch('http://localhost:5001/health');
                 if (response.ok) {
-                    statusBadge.innerHTML = '<i class="fas fa-circle" style="color: #22c55e; font-size: 0.7rem;"></i> API Connected';
+                    statusBadge.innerHTML = '<i class="fas fa-circle" style="color: #22c55e; font-size: 0.7rem;"></i> Module 1: Online';
                 } else {
-                    throw new Error('API unhealthy');
+                    throw new Error('Module 1 offline');
                 }
             } catch (e) {
-                statusBadge.innerHTML = '<i class="fas fa-circle" style="color: #dc2626; font-size: 0.7rem;"></i> API Offline';
+                statusBadge.innerHTML = '<i class="fas fa-circle" style="color: #dc2626; font-size: 0.7rem;"></i> Module 1: Offline';
             }
         }
 
-        // Load and display results
+        async function checkModule3Status() {
+            const statusBadge = document.getElementById('module3Status');
+            try {
+                const response = await fetch('http://localhost:5002/health');
+                if (response.ok) {
+                    statusBadge.innerHTML = '<i class="fas fa-circle" style="color: #22c55e; font-size: 0.7rem;"></i> Module 3: Online';
+                } else {
+                    throw new Error('Module 3 offline');
+                }
+            } catch (e) {
+                statusBadge.innerHTML = '<i class="fas fa-circle" style="color: #dc2626; font-size: 0.7rem;"></i> Module 3: Offline';
+            }
+        }
+
+        // ============================================================
+        // GET RELIEF RECOMMENDATIONS FROM MODULE 3
+        // ============================================================
+
+        async function getReliefRecommendations(divisionName) {
+            console.log(`📋 Getting relief recommendations for: ${divisionName}`);
+            
+            const reliefContent = document.getElementById('reliefContent');
+            reliefContent.innerHTML = `
+                <div class="loading">
+                    <i class="fas fa-spinner"></i>
+                    <p>Loading relief recommendations for ${divisionName}...</p>
+                    <p style="font-size: 0.8rem;">Querying Module 3 API...</p>
+                </div>
+            `;
+
+            try {
+                const response = await fetch(`http://localhost:5002/api/predict/${encodeURIComponent(divisionName)}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    displayReliefRecommendations(data);
+                } else {
+                    throw new Error(data.error || 'Unknown error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                reliefContent.innerHTML = `
+                    <div class="error-message">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <strong>Error loading recommendations</strong>
+                        <p>${error.message}</p>
+                        <p style="margin-top: 0.5rem; font-size: 0.8rem;">Make sure Module 3 is running on port 5002</p>
+                    </div>
+                `;
+            }
+        }
+
+        function displayReliefRecommendations(data) {
+            const html = `
+                <div style="margin-bottom: 1rem;">
+                    <div class="stat-card highlight" style="margin-bottom: 1rem;">
+                        <div class="stat-value">${data.division}</div>
+                        <div class="stat-label">Selected Division</div>
+                    </div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value">${data.input_data.affected_population.toLocaleString()}</div>
+                            <div class="stat-label">Affected Population</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${data.overall_priority}</div>
+                            <div class="stat-label">Priority Level</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value">${data.input_data.children_percentage}%</div>
+                            <div class="stat-label">Children</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${data.input_data.elderly_percentage}%</div>
+                            <div class="stat-label">Elderly</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${data.input_data.female_percentage}%</div>
+                            <div class="stat-label">Female</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${data.input_data.flood_severity}</div>
+                            <div class="stat-label">Flood Severity</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <h4 style="margin: 1rem 0 0.5rem 0;">📦 Relief Items Needed (First 72 Hours)</h4>
+                <div class="relief-grid">
+                    ${Object.entries(data.relief_predictions).map(([item, details]) => `
+                        <div class="relief-item">
+                            <div class="relief-name">${item}</div>
+                            <div class="relief-quantity">${details.quantity.toLocaleString()}</div>
+                            <span class="priority-badge priority-${details.priority}" style="font-size: 0.7rem; margin-top: 0.25rem;">${details.priority}</span>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div class="causal-box" style="margin-top: 1rem;">
+                    <h4 style="margin-bottom: 0.5rem;"><i class="fas fa-brain"></i> Why these items?</h4>
+                    <p>${data.explanation}</p>
+                    ${data.drivers && data.drivers.length > 0 ? `
+                        <div class="reasoning-step">
+                            <strong>Key Drivers:</strong>
+                            <ul style="margin-left: 1rem; margin-top: 0.3rem;">
+                                ${data.drivers.map(d => `<li>${d}</li>`).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            document.getElementById('reliefContent').innerHTML = html;
+        }
+
+        // ============================================================
+        // LOAD FLOOD RESULTS FROM MODULE 1
+        // ============================================================
+
         async function loadResults() {
             const statsContent = document.getElementById('statsContent');
             statsContent.innerHTML = `
                 <div class="empty-state">
                     <i class="fas fa-spinner fa-spin"></i>
-                    <p>Loading flood data...</p>
+                    <p>Loading flood data from Module 1...</p>
                 </div>
             `;
 
