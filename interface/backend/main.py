@@ -166,6 +166,7 @@ sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 
 from modules.flood_detection import FloodDetectionProcessor, FloodDetectionConfig
 from modules.flood_detection.database import FloodDetectionDatabase
+from modules.affected_population.live_prediction_endpoint import LivePopulationRiskEndpoint
 
 app = Flask(__name__)
 CORS(app)
@@ -173,6 +174,8 @@ CORS(app)
 os.makedirs('uploads', exist_ok=True)
 os.makedirs('outputs', exist_ok=True)
 
+# Initialize your ML weights once when the server starts up (Fast runtime memory allocation)
+population_risk_engine = LivePopulationRiskEndpoint()
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -194,6 +197,9 @@ def process():
             paths[key] = save_path
         
         event_date = request.form.get('event_date', None)
+
+        # Capture live rainfall from dashboard form inputs (Defaulting safely to 0.0 if omitted)
+        input_precip_mm = float(request.form.get('precip_mm', 0.0))
         
         config = FloodDetectionConfig()
         processor = FloodDetectionProcessor(config)
@@ -206,15 +212,24 @@ def process():
             dem_path=paths['dem'],
             event_date=event_date,
         )
-        
+
+        # Save Module 1 results to Supabase
         db = FloodDetectionDatabase(config)
         db.save_results(results['gdf'], results['stats'], event_date)
+
+        # ========================================================
+        # ── MODULE 2 EXECUTION: COMPUTE DEMOGRAPHIC ESTIMATION ──
+        # ========================================================
+        # Pass Module 1's generated GeoDataFrame matrix and the rainfall variable
+        live_grid_df = results['gdf']
+        demographic_payload = population_risk_engine.predict_realtime_demographics(live_grid_df, input_precip_mm)
         
         return jsonify({
             'success': True,
             'stats': results['stats'],
             'geojson_url': '/geojson',
             'map_url': '/map'
+            'affected_population_demographics': demographic_payload # ← Your output added to the app payload
         })
         
     except Exception as e:

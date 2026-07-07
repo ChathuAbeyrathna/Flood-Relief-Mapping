@@ -311,6 +311,20 @@
             ">
                 </div>
 
+                <!-- Live Rainfall Input Field for Module 2 Machine Learning Engine -->
+                <div class="file-group">
+                    <label>Live Rainfall Reading (mm) *</label>
+                    <input type="number" id="precip_mm" step="0.01" min="0" placeholder="e.g. 15.5" style="
+                        width: 100%;
+                        padding: 0.8rem 1rem;
+                        border: 2px solid #1a6b4a;
+                        border-radius: 10px;
+                        font-size: 0.95rem;
+                        color: #0f3b2c;
+                        background: #f8f9fa;
+                    " required>
+                </div>
+
                 <div class="button-group">
                     <button type="button" class="btn btn-secondary" onclick="window.location.href='index.html'">
                         <i class="fas fa-arrow-left"></i> Back to Dashboard
@@ -383,6 +397,9 @@
             formData.append('after_b5', document.getElementById('after_b5').files[0]);
             formData.append('dem', document.getElementById('dem').files[0]);
 
+            // Add these lines to send the user interface values to main.py
+            formData.append('event_date', document.getElementById('event_date').value);
+            formData.append('precip_mm', document.getElementById('precip_mm').value);
 
 
             // Simulate progress
