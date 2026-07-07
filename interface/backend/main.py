@@ -114,13 +114,13 @@ Team Trivia · University of Moratuwa · 2026
 
 import os
 import sys
+import json
 from pathlib import Path
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from dotenv import load_dotenv
 
 # ─── SETUP PATHS ─────────────────────────────────────────
-# Project root: D:\Backup\Desktop\fourth year\Flood\Flood-Relief-Mapping
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.append(str(PROJECT_ROOT))
 
@@ -132,11 +132,9 @@ from modules.flood_detection import FloodDetectionProcessor, FloodDetectionConfi
 from modules.flood_detection.database import FloodDetectionDatabase
 
 # ─── MODULE 2 IMPORTS ────────────────────────────────────
-# Path: modules/affected_population/live_prediction_endpoint.py
 from modules.affected_population.live_prediction_endpoint import LivePopulationRiskEndpoint
 
 # ─── MODULE 3 IMPORTS ────────────────────────────────────
-# Path: modules/resource_recommendation/backend/app.py
 module3_path = PROJECT_ROOT / 'modules' / 'resource_recommendation' / 'backend'
 sys.path.insert(0, str(module3_path))
 
@@ -185,6 +183,77 @@ latest_results = {
 }
 
 # ═══════════════════════════════════════════════════════════
+#  SUPABASE HELPERS
+# ═══════════════════════════════════════════════════════════
+
+def save_population_to_supabase(population_data, event_date=None):
+    """Save Module 2 population predictions to Supabase."""
+    try:
+        from supabase import create_client
+        
+        supabase_url = os.getenv('SUPABASE_URL')
+        supabase_key = os.getenv('SUPABASE_KEY')
+        
+        if not supabase_url or not supabase_key:
+            print("⚠️ Supabase credentials not found, skipping population save")
+            return False
+        
+        supabase = create_client(supabase_url, supabase_key)
+        
+        demographic_data = population_data.get('demographic_data', [])
+        
+        for div_data in demographic_data:
+            record = {
+                'division_name': div_data['division_name'],
+                'predicted_mean_affected': div_data['summary_metrics']['predicted_mean_affected'],
+                'upper_risk_limit': div_data['summary_metrics']['conservative_upper_risk_limit'],
+                'male_count': div_data['gender_demographics']['male_count'],
+                'female_count': div_data['gender_demographics']['female_count'],
+                'children_count': div_data['age_demographics']['children_count_0_14'],
+                'adult_count': div_data['age_demographics']['adult_count_15_59'],
+                'elderly_count': div_data['age_demographics']['elderly_count_60_plus'],
+                'upper_risk_male': div_data['gender_demographics']['upper_risk_male_count'],
+                'upper_risk_female': div_data['gender_demographics']['upper_risk_female_count'],
+                'upper_risk_children': div_data['age_demographics']['upper_risk_children_count'],
+                'upper_risk_elderly': div_data['age_demographics']['upper_risk_elderly_count'],
+                'event_date': event_date,
+                'spatial_scope': population_data.get('spatial_scope', 'Gampaha District'),
+                'evaluation_year': population_data.get('evaluation_year', 2025)
+            }
+            
+            # Upsert - update if exists, insert if new
+            supabase.table('population_predictions').upsert(
+                record, 
+                on_conflict='division_name,event_date'
+            ).execute()
+        
+        print(f"✅ Population data saved to Supabase: {len(demographic_data)} divisions")
+        return True
+        
+    except Exception as e:
+        print(f"⚠️ Failed to save population to Supabase: {e}")
+        # Also save locally as backup
+        save_population_to_file(population_data, event_date)
+        return False
+
+
+def save_population_to_file(population_data, event_date=None):
+    """Backup: Save population results to JSON file."""
+    try:
+        output_path = PROJECT_ROOT / 'outputs' / 'population_results.json'
+        data_to_save = {
+            'event_date': event_date,
+            'population_data': population_data,
+            'saved_at': str(datetime.datetime.now())
+        }
+        with open(output_path, 'w') as f:
+            json.dump(data_to_save, f, indent=2, default=str)
+        print(f"💾 Population data backup saved to: {output_path}")
+    except Exception as e:
+        print(f"⚠️ Failed to save population backup: {e}")
+
+
+# ═══════════════════════════════════════════════════════════
 #  MAIN ROUTES
 # ═══════════════════════════════════════════════════════════
 
@@ -208,7 +277,7 @@ def process():
     Main processing endpoint - runs Module 1 (flood) + Module 2 (population).
     """
     try:
-        # ─── MODULE 1: FLOOD DETECTION ────────────────────
+        # ─── GET UPLOADED FILES ───────────────────────────
         files_needed = ['before_b3', 'before_b5', 'after_b3', 'after_b5', 'dem']
         paths = {}
         
@@ -222,9 +291,11 @@ def process():
             f.save(save_path)
             paths[key] = save_path
         
+        # ─── GET FORM DATA ────────────────────────────────
         event_date = request.form.get('event_date', None)
-        precipitation = float(request.form.get('precipitation', 150))
+        input_precip_mm = float(request.form.get('precip_mm', 0.0))
         
+        # ─── MODULE 1: FLOOD DETECTION ────────────────────
         print("🌊 Running Module 1: Flood Detection...")
         config = FloodDetectionConfig()
         processor = FloodDetectionProcessor(config)
@@ -239,7 +310,7 @@ def process():
         )
         print("✅ Module 1 complete!")
         
-        # Save to Supabase
+        # Save Module 1 results to Supabase
         db = FloodDetectionDatabase(config)
         db.save_results(flood_results['gdf'], flood_results['stats'], event_date)
         
@@ -261,13 +332,16 @@ def process():
                 # Run prediction
                 population_results = risk_engine.predict_realtime_demographics(
                     live_grid_df=live_grid_df, 
-                    input_precip_mm=precipitation
+                    input_precip_mm=input_precip_mm
                 )
                 
                 if population_results.get('status') == 'SUCCESS':
                     total = sum(d['summary_metrics']['predicted_mean_affected'] 
                                for d in population_results['demographic_data'])
                     print(f"✅ Module 2 complete! Total affected: {total:,}")
+                    
+                    # ✅ SAVE TO SUPABASE
+                    save_population_to_supabase(population_results, event_date)
                     
             except Exception as pop_error:
                 import traceback
@@ -281,7 +355,7 @@ def process():
         latest_results['flood'] = flood_results
         latest_results['population'] = population_results
         
-        # ─── RETURN RESULTS ───────────────────────────────
+        # ─── RETURN COMBINED RESULTS ──────────────────────
         return jsonify({
             'success': True,
             'module1': {
@@ -308,7 +382,6 @@ def get_geojson():
     path = output_dir / 'flood_results.geojson'
     
     if not path.exists():
-        # Try alternate location
         path = PROJECT_ROOT / 'outputs' / 'flood_results.geojson'
     
     if not path.exists():
@@ -388,6 +461,11 @@ def get_population():
         )
         
         latest_results['population'] = population_results
+        
+        # Also save to Supabase if successful
+        if population_results.get('status') == 'SUCCESS':
+            save_population_to_supabase(population_results)
+        
         return jsonify(population_results)
         
     except Exception as e:
@@ -399,10 +477,36 @@ def get_population():
         }), 500
 
 
+@app.route('/population/divisions', methods=['GET'])
+def get_population_divisions():
+    """Get population data for all divisions from Supabase."""
+    try:
+        from supabase import create_client
+        
+        supabase_url = os.getenv('SUPABASE_URL')
+        supabase_key = os.getenv('SUPABASE_KEY')
+        
+        if not supabase_url or not supabase_key:
+            # Fallback to memory
+            if latest_results.get('population'):
+                return jsonify(latest_results['population'])
+            return jsonify({'status': 'NO_DATA', 'error': 'No Supabase connection'}), 503
+        
+        supabase = create_client(supabase_url, supabase_key)
+        response = supabase.table('population_predictions').select('*').execute()
+        
+        return jsonify({
+            'status': 'SUCCESS',
+            'data': response.data
+        })
+        
+    except Exception as e:
+        return jsonify({'status': 'ERROR', 'error': str(e)}), 500
+
+
 # ═══════════════════════════════════════════════════════════
 #  MODULE 3 ROUTES (Relief)
 #  Already registered via api_bp at /api/*
-#  Endpoints: /api/predict/<division>, /api/divisions, etc.
 # ═══════════════════════════════════════════════════════════
 
 
@@ -411,6 +515,8 @@ def get_population():
 # ═══════════════════════════════════════════════════════════
 
 if __name__ == '__main__':
+    import datetime
+    
     print("\n" + "=" * 60)
     print("🌊 FLOOD RELIEF MANAGEMENT SYSTEM")
     print("=" * 60)
@@ -424,6 +530,7 @@ if __name__ == '__main__':
     print(f"📍 Health:  http://localhost:5001/health")
     print(f"📍 Process: POST http://localhost:5001/process")
     print(f"📍 GeoJSON: http://localhost:5001/geojson")
+    print(f"📍 Population: http://localhost:5001/population")
     print(f"📍 Relief:  http://localhost:5001/api/predict/Gampaha")
     print("=" * 60 + "\n")
     
