@@ -1,0 +1,15 @@
+{
+  "accuracy": 33.34,
+  "precision": 0.9355,
+  "recall": 0.0058,
+  "f1_score": 0.0116,
+  "iou": 0.0058,
+  "true_positives": 58,
+  "true_negatives": 4899,
+  "false_positives": 4,
+  "false_negatives": 9907,
+  "total_divisions": 13,
+  "flooded_divisions": 10,
+  "division_level": "DS",
+  "reference": "WFP ADAM"
+}
