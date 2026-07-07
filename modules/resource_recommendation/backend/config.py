@@ -11,7 +11,7 @@ load_dotenv()
 
 class Config:
     # Module 3 settings
-    MODULE3_PORT = int(os.getenv('MODULE3_PORT', 5002))
+    MODULE3_PORT = int(os.getenv('MODULE3_PORT', 5001))
     DEBUG = True if os.getenv('DEBUG', 'True') == 'True' else False
     
     # Supabase settings

@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from pgmpy.models import DiscreteBayesianNetwork
+from pgmpy.models import BayesianNetwork as DiscreteBayesianNetwork
 from pgmpy.estimators import MaximumLikelihoodEstimator, BayesianEstimator
 from pgmpy.inference import VariableElimination
 import warnings

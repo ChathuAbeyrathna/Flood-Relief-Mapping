@@ -49,6 +49,7 @@
             display: flex;
             gap: 1rem;
             align-items: center;
+            flex-wrap: wrap;
         }
 
         .status-badge {
@@ -56,10 +57,7 @@
             padding: 0.4rem 1rem;
             border-radius: 20px;
             font-size: 0.8rem;
-        }
-
-        .status-badge.module3 {
-            background: #1a6b4a;
+            white-space: nowrap;
         }
 
         .btn-upload {
@@ -74,11 +72,36 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            border: none;
+            cursor: pointer;
         }
 
         .btn-upload:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .refresh-btn {
+            background: #1a6b4a;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 10px;
+            border: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            width: 100%;
+            justify-content: center;
+            margin-top: 0.5rem;
+        }
+
+        .refresh-btn:hover {
+            background: #0f3b2c;
+            transform: translateY(-2px);
         }
 
         /* Main container */
@@ -139,6 +162,11 @@
         .stat-card.highlight {
             border-color: #1a6b4a;
             background: #e8f5e9;
+        }
+
+        .stat-card.population {
+            border-color: #2196F3;
+            background: #e3f2fd;
         }
 
         .stat-value {
@@ -254,6 +282,40 @@
             margin: 1rem 0;
         }
 
+        .success-message {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        .popup-btn {
+            width: 100%;
+            margin-top: 10px;
+            padding: 8px;
+            background: #1a6b4a;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .popup-btn:hover {
+            background: #0f3b2c;
+        }
+
+        .demographics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+            margin-top: 6px;
+            font-size: 0.75rem;
+        }
+
         .info-panel::-webkit-scrollbar {
             width: 6px;
         }
@@ -274,11 +336,6 @@
             .map-panel {
                 height: 50vh;
             }
-
-            .map-panel {
-                height: 50vh;
-            }
-
             .info-panel {
                 height: 50vh;
             }
@@ -293,13 +350,9 @@
             Flood Relief Management System
         </h1>
         <div class="header-actions">
-            <span class="status-badge" id="module1Status">
+            <span class="status-badge" id="serverStatus">
                 <i class="fas fa-circle" style="color: #f97316; font-size: 0.7rem;"></i>
-                Module 1: Checking...
-            </span>
-            <span class="status-badge module3" id="module3Status">
-                <i class="fas fa-circle" style="color: #f97316; font-size: 0.7rem;"></i>
-                Module 3: Checking...
+                Server: Checking...
             </span>
             <a href="upload.html" class="btn-upload">
                 <i class="fas fa-upload"></i> Upload New Data
@@ -313,8 +366,9 @@
         </div>
 
         <div class="info-panel" id="infoPanel">
+            <!-- Flood Statistics -->
             <div class="panel-section">
-                <h3><i class="fas fa-chart-bar"></i> Flood Statistics</h3>
+                <h3><i class="fas fa-chart-bar"></i> Flood Statistics (Module 1)</h3>
                 <div id="statsContent">
                     <div class="empty-state">
                         <i class="fas fa-satellite-dish"></i>
@@ -327,9 +381,21 @@
                 </div>
             </div>
 
-            <!-- Relief Recommendations Panel (Module 3) -->
+            <!-- Population Impact -->
+            <div class="panel-section" id="populationPanel">
+                <h3><i class="fas fa-users"></i> Population Impact (Module 2)</h3>
+                <div id="populationContent">
+                    <div class="empty-state">
+                        <i class="fas fa-user-friends"></i>
+                        <p><strong>Population data loads automatically</strong></p>
+                        <p>Will appear after flood detection completes</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Relief Recommendations -->
             <div class="panel-section" id="reliefPanel">
-                <h3><i class="fas fa-hands-helping"></i> Relief Recommendations</h3>
+                <h3><i class="fas fa-hands-helping"></i> Relief Recommendations (Module 3)</h3>
                 <div id="reliefContent">
                     <div class="empty-state">
                         <i class="fas fa-map-marker-alt"></i>
@@ -339,7 +405,7 @@
                 </div>
             </div>
 
-            <!-- Legend Panel -->
+            <!-- Legend -->
             <div class="panel-section">
                 <h3><i class="fas fa-info-circle"></i> Legend</h3>
                 <div id="legendContent">
@@ -350,16 +416,23 @@
                         <i class="fas fa-circle" style="color: #22c55e;"></i> No Flood
                     </p>
                 </div>
-                <button class="refresh-btn" onclick="loadResults()">
-                    <i class="fas fa-sync-alt"></i> Refresh Flood Data
+                <button class="refresh-btn" onclick="loadAllData()">
+                    <i class="fas fa-sync-alt"></i> Refresh All Data
                 </button>
             </div>
         </div>
     </div>
 
     <script>
-        // Initialize map centered on Sri Lanka
-        var map = L.map('map').setView([7.0, 80.0], 8);
+        // ═══════════════════════════════════════════════════
+        // CONFIGURATION
+        // ═══════════════════════════════════════════════════
+        const API_BASE = 'http://localhost:5001';  // Single unified server!
+        
+        // ═══════════════════════════════════════════════════
+        // MAP INITIALIZATION
+        // ═══════════════════════════════════════════════════
+        var map = L.map('map').setView([7.08, 79.95], 10);  // Centered on Gampaha
 
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
@@ -368,8 +441,10 @@
         }).addTo(map);
 
         var floodLayer = null;
+        var populationData = null;
+        var currentGeoJSON = null;
 
-        // Division coordinates (approximate centers)
+        // Division centers
         var divisions = [
             { name: "Gampaha", lat: 7.09, lng: 79.99 },
             { name: "Negombo", lat: 7.21, lng: 79.84 },
@@ -386,78 +461,460 @@
             { name: "Divulapitiya", lat: 7.20, lng: 80.01 }
         ];
 
-        // ============================================================
-        // CHECK API STATUS
-        // ============================================================
-
-        async function checkModule1Status() {
-            const statusBadge = document.getElementById('module1Status');
+        // ═══════════════════════════════════════════════════
+        // SERVER STATUS CHECK
+        // ═══════════════════════════════════════════════════
+        async function checkServerStatus() {
+            const statusBadge = document.getElementById('serverStatus');
             try {
-                const response = await fetch('http://localhost:5001/health');
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                
                 if (response.ok) {
-                    statusBadge.innerHTML = '<i class="fas fa-circle" style="color: #22c55e; font-size: 0.7rem;"></i> Module 1: Online';
+                    const modules = data.modules || {};
+                    const allOnline = modules.module1_flood_detection === 'online' && 
+                                     modules.module2_population === 'online' && 
+                                     modules.module3_relief === 'online';
+                    
+                    if (allOnline) {
+                        statusBadge.innerHTML = '<i class="fas fa-circle" style="color: #22c55e; font-size: 0.7rem;"></i> All Modules: Online ✅';
+                        statusBadge.style.background = '#1a6b4a';
+                    } else {
+                        statusBadge.innerHTML = '<i class="fas fa-circle" style="color: #f97316; font-size: 0.7rem;"></i> Server: Partial ⚠️';
+                    }
                 } else {
-                    throw new Error('Module 1 offline');
+                    throw new Error('Server error');
                 }
             } catch (e) {
-                statusBadge.innerHTML = '<i class="fas fa-circle" style="color: #dc2626; font-size: 0.7rem;"></i> Module 1: Offline';
+                statusBadge.innerHTML = '<i class="fas fa-circle" style="color: #dc2626; font-size: 0.7rem;"></i> Server: Offline ❌';
+                statusBadge.style.background = 'rgba(220, 38, 38, 0.3)';
             }
         }
 
-        async function checkModule3Status() {
-            const statusBadge = document.getElementById('module3Status');
-            try {
-                const response = await fetch('http://localhost:5002/health');
-                if (response.ok) {
-                    statusBadge.innerHTML = '<i class="fas fa-circle" style="color: #22c55e; font-size: 0.7rem;"></i> Module 3: Online';
-                } else {
-                    throw new Error('Module 3 offline');
-                }
-            } catch (e) {
-                statusBadge.innerHTML = '<i class="fas fa-circle" style="color: #dc2626; font-size: 0.7rem;"></i> Module 3: Offline';
+        // ═══════════════════════════════════════════════════
+        // LOAD ALL DATA (Flood + Population)
+        // ═══════════════════════════════════════════════════
+        async function loadAllData() {
+            console.log('🔄 Loading all data...');
+            
+            // Load flood GeoJSON
+            await loadFloodData();
+            
+            // Load population data if GeoJSON available
+            if (currentGeoJSON) {
+                await loadPopulationData();
             }
         }
 
-        // ============================================================
-        // GET RELIEF RECOMMENDATIONS FROM MODULE 3
-        // ============================================================
+        // ═══════════════════════════════════════════════════
+        // LOAD FLOOD DATA (Module 1)
+        // ═══════════════════════════════════════════════════
+        async function loadFloodData() {
+            const statsContent = document.getElementById('statsContent');
+            statsContent.innerHTML = `
+                <div class="loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Loading flood data...</p>
+                </div>
+            `;
 
+            try {
+                const response = await fetch(`${API_BASE}/geojson`);
+
+                if (!response.ok) {
+                    throw new Error('No flood results available');
+                }
+
+                const geojsonData = await response.json();
+                currentGeoJSON = geojsonData;
+
+                // Display on map
+                if (floodLayer) {
+                    map.removeLayer(floodLayer);
+                }
+
+                floodLayer = L.geoJSON(geojsonData, {
+                    style: function(feature) {
+                        var priority = feature.properties.priority_label || 'No Flood';
+                        var colors = {
+                            'High': { fill: '#dc2626', opacity: 0.6 },
+                            'Medium': { fill: '#f97316', opacity: 0.5 },
+                            'Low': { fill: '#fef08a', opacity: 0.4 },
+                            'No Flood': { fill: '#e0e0e0', opacity: 0.2 }
+                        };
+                        var color = colors[priority] || colors['No Flood'];
+                        return {
+                            fillColor: color.fill,
+                            weight: 1.5,
+                            opacity: 1,
+                            color: priority === 'No Flood' ? '#ccc' : '#fff',
+                            fillOpacity: color.opacity
+                        };
+                    },
+                    onEachFeature: function(feature, layer) {
+                        var props = feature.properties;
+                        var divisionName = props.adm3_name || props.ds_division || 'Division';
+                        
+                        layer.bindPopup(
+                            createPopupContent(props, divisionName), 
+                            { maxWidth: 350 }
+                        );
+                        
+                        // Click event for relief recommendations
+                        layer.on('click', function() {
+                            getReliefRecommendations(divisionName);
+                        });
+                    }
+                }).addTo(map);
+
+                map.fitBounds(floodLayer.getBounds());
+                
+                // Display flood statistics
+                displayFloodStats(geojsonData);
+                
+                console.log('✅ Flood data loaded successfully');
+
+            } catch (error) {
+                console.log('Flood GeoJSON not available:', error.message);
+                statsContent.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <p><strong>No flood data available</strong></p>
+                        <p>Upload satellite imagery and process to see results</p>
+                        <a href="upload.html" class="btn-upload" style="display: inline-flex; margin-top: 1rem;">
+                            <i class="fas fa-upload"></i> Upload Data
+                        </a>
+                    </div>
+                `;
+            }
+        }
+
+        // ═══════════════════════════════════════════════════
+        // LOAD POPULATION DATA (Module 2)
+        // ═══════════════════════════════════════════════════
+        async function loadPopulationData() {
+            const populationContent = document.getElementById('populationContent');
+            populationContent.innerHTML = `
+                <div class="loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Calculating population impact...</p>
+                </div>
+            `;
+
+            try {
+                const response = await fetch(`${API_BASE}/population`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        geojson: currentGeoJSON,
+                        precipitation: 150
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'SUCCESS') {
+                    populationData = data;
+                    displayPopulationStats(data);
+                    console.log('✅ Population data loaded successfully');
+                } else if (data.status === 'UNAVAILABLE') {
+                    populationContent.innerHTML = `
+                        <div class="error-message">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Module 2 not available</strong>
+                            <p>Population prediction engine is not loaded</p>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(data.error || 'Population prediction failed');
+                }
+            } catch (error) {
+                console.error('Population error:', error);
+                populationContent.innerHTML = `
+                    <div class="error-message">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <strong>Population data unavailable</strong>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // ═══════════════════════════════════════════════════
+        // DISPLAY FLOOD STATISTICS
+        // ═══════════════════════════════════════════════════
+        function displayFloodStats(geojsonData) {
+            const statsContent = document.getElementById('statsContent');
+            const features = geojsonData.features || [];
+
+            let floodedDivisions = 0;
+            let totalFloodArea = 0;
+            let highPriorityDivisions = 0;
+            let mediumPriorityDivisions = 0;
+            let lowPriorityDivisions = 0;
+
+            features.forEach(f => {
+                if (f.properties) {
+                    const area = f.properties.flood_area_ha || 0;
+                    const priority = f.properties.priority_label || 'No Flood';
+
+                    if (area > 0) {
+                        floodedDivisions++;
+                        totalFloodArea += area;
+                        if (priority === 'High') highPriorityDivisions++;
+                        else if (priority === 'Medium') mediumPriorityDivisions++;
+                        else if (priority === 'Low') lowPriorityDivisions++;
+                    }
+                }
+            });
+
+            const totalAreaKm2 = totalFloodArea / 100;
+
+            if (floodedDivisions === 0) {
+                statsContent.innerHTML = `
+                    <div class="success-message">
+                        <i class="fas fa-check-circle"></i>
+                        <strong>No Flooding Detected</strong>
+                        <p>All ${features.length} divisions are clear</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let severityColor, severityText;
+            if (totalAreaKm2 > 10 || highPriorityDivisions > 3) {
+                severityColor = '#dc2626';
+                severityText = 'Severe Flood Event';
+            } else if (totalAreaKm2 > 5 || highPriorityDivisions > 0) {
+                severityColor = '#f97316';
+                severityText = 'Moderate Flood Event';
+            } else {
+                severityColor = '#eab308';
+                severityText = 'Minor Flood Event';
+            }
+
+            statsContent.innerHTML = `
+                <div class="stats-grid">
+                    <div class="stat-card highlight">
+                        <div class="stat-value">${floodedDivisions}</div>
+                        <div class="stat-label">Affected Divisions</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${totalAreaKm2.toFixed(2)} km²</div>
+                        <div class="stat-label">Total Flooded Area</div>
+                    </div>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card" style="border-color: #dc2626;">
+                        <div class="stat-value" style="color: #dc2626;">${highPriorityDivisions}</div>
+                        <div class="stat-label">High Priority</div>
+                    </div>
+                    <div class="stat-card" style="border-color: #f97316;">
+                        <div class="stat-value" style="color: #f97316;">${mediumPriorityDivisions}</div>
+                        <div class="stat-label">Medium Priority</div>
+                    </div>
+                    <div class="stat-card" style="border-color: #eab308;">
+                        <div class="stat-value" style="color: #eab308;">${lowPriorityDivisions}</div>
+                        <div class="stat-label">Low Priority</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${features.length}</div>
+                        <div class="stat-label">Total Divisions</div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 0.8rem; padding: 0.8rem; background: #e8f5e9; border-radius: 10px; text-align: center;">
+                    <span class="severity-badge" style="background: ${severityColor};">${severityText}</span>
+                    <p style="margin-top: 0.5rem; font-size: 0.8rem; color: #0f3b2c;">
+                        <i class="fas fa-clock"></i> Last updated: ${new Date().toLocaleString()}
+                    </p>
+                </div>
+            `;
+        }
+
+        // ═══════════════════════════════════════════════════
+        // DISPLAY POPULATION STATISTICS
+        // ═══════════════════════════════════════════════════
+        function displayPopulationStats(data) {
+            const populationContent = document.getElementById('populationContent');
+            
+            if (!data.demographic_data || data.demographic_data.length === 0) {
+                populationContent.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-users-slash"></i>
+                        <p><strong>No population data available</strong></p>
+                    </div>
+                `;
+                return;
+            }
+
+            const totalAffected = data.demographic_data.reduce((sum, d) => 
+                sum + d.summary_metrics.predicted_mean_affected, 0);
+            
+            const totalUpperRisk = data.demographic_data.reduce((sum, d) => 
+                sum + d.summary_metrics.conservative_upper_risk_limit, 0);
+
+            let topDivision = data.demographic_data[0];
+            data.demographic_data.forEach(d => {
+                if (d.summary_metrics.predicted_mean_affected > topDivision.summary_metrics.predicted_mean_affected) {
+                    topDivision = d;
+                }
+            });
+
+            populationContent.innerHTML = `
+                <div class="stats-grid">
+                    <div class="stat-card population">
+                        <div class="stat-value">${totalAffected.toLocaleString()}</div>
+                        <div class="stat-label">Estimated Affected</div>
+                    </div>
+                    <div class="stat-card" style="border-color: #dc2626;">
+                        <div class="stat-value" style="color: #dc2626;">${totalUpperRisk.toLocaleString()}</div>
+                        <div class="stat-label">Upper Risk Limit</div>
+                    </div>
+                </div>
+                
+                <div style="background: #f0f9ff; padding: 10px; border-radius: 8px; margin-top: 0.5rem;">
+                    <strong style="font-size: 0.85rem;">🔝 Most Affected Division:</strong>
+                    <span style="font-weight: bold; color: #1a6b4a;">${topDivision.division_name}</span>
+                    <span style="color: #666; font-size: 0.8rem;">
+                        (${topDivision.summary_metrics.predicted_mean_affected.toLocaleString()} people)
+                    </span>
+                </div>
+                
+                <p style="font-size: 0.7rem; color: #666; margin-top: 0.5rem; text-align: center;">
+                    Click on any division on the map for detailed demographics
+                </p>
+            `;
+        }
+
+        // ═══════════════════════════════════════════════════
+        // GET POPULATION FOR SPECIFIC DIVISION
+        // ═══════════════════════════════════════════════════
+        function getPopulationForDivision(divisionName) {
+            if (!populationData || !populationData.demographic_data) return null;
+            
+            return populationData.demographic_data.find(d => 
+                d.division_name.toLowerCase() === divisionName.toLowerCase()
+            );
+        }
+
+        // ═══════════════════════════════════════════════════
+        // CREATE MAP POPUP CONTENT
+        // ═══════════════════════════════════════════════════
+        function createPopupContent(props, divisionName) {
+            var priorityColors = {
+                'High': '#dc2626',
+                'Medium': '#f97316',
+                'Low': '#22c55e',
+                'No Flood': '#6b7280'
+            };
+            var priorityColor = priorityColors[props.priority_label] || '#6b7280';
+            var popData = getPopulationForDivision(divisionName);
+            
+            var html = `
+                <div style="font-family: 'Segoe UI', sans-serif; min-width: 260px;">
+                    <h3 style="color: #0f3b2c; margin: 0 0 10px 0; font-size: 1.1rem; border-bottom: 2px solid #1a6b4a; padding-bottom: 8px;">
+                        ${divisionName}
+                    </h3>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                        <div style="background: #f0fdf4; padding: 8px; border-radius: 6px;">
+                            <div style="font-size: 0.7rem; color: #666; text-transform: uppercase;">Flood Area</div>
+                            <div style="font-size: 1.1rem; font-weight: bold; color: #0f3b2c;">${(props.flood_area_ha || 0).toFixed(1)} ha</div>
+                        </div>
+                        <div style="background: #f0fdf4; padding: 8px; border-radius: 6px;">
+                            <div style="font-size: 0.7rem; color: #666; text-transform: uppercase;">Max Depth</div>
+                            <div style="font-size: 1.1rem; font-weight: bold; color: #0f3b2c;">${(props.flood_depth_max || 0).toFixed(2)} m</div>
+                        </div>
+                    </div>
+                    
+                    <div style="background: #f8f9fa; padding: 8px; border-radius: 6px; margin-bottom: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-size: 0.8rem; color: #666;">Avg Depth</span>
+                            <span style="font-weight: bold; color: #0f3b2c;">${(props.flood_depth_mean || 0).toFixed(2)} m</span>
+                        </div>
+                    </div>
+            `;
+            
+            // Add population data if available
+            if (popData) {
+                html += `
+                    <div style="background: #e8f5e9; padding: 10px; border-radius: 6px; margin-bottom: 10px; border-left: 3px solid #1a6b4a;">
+                        <div style="font-size: 0.7rem; color: #666; margin-bottom: 5px;">👥 POPULATION IMPACT</div>
+                        <div style="font-weight: bold; font-size: 1.1rem; color: #0f3b2c; margin-bottom: 6px;">
+                            ${popData.summary_metrics.predicted_mean_affected.toLocaleString()} affected
+                        </div>
+                        <div class="demographics-grid">
+                            <div>🚻 Male: ${popData.gender_demographics.male_count.toLocaleString()}</div>
+                            <div>🚺 Female: ${popData.gender_demographics.female_count.toLocaleString()}</div>
+                            <div>👶 Children: ${popData.age_demographics.children_count_0_14.toLocaleString()}</div>
+                            <div>👴 Elderly: ${popData.age_demographics.elderly_count_60_plus.toLocaleString()}</div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            html += `
+                    <div style="text-align: center; margin-top: 10px;">
+                        <span style="display: inline-block; padding: 4px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; color: white; background: ${priorityColor};">
+                            ${props.priority_label || 'No Flood'}
+                        </span>
+                    </div>
+                    
+                    <button class="popup-btn" onclick="getReliefRecommendations('${divisionName}')">
+                        📦 Get Relief Recommendations
+                    </button>
+                </div>
+            `;
+            
+            return html;
+        }
+
+        // ═══════════════════════════════════════════════════
+        // RELIEF RECOMMENDATIONS (Module 3)
+        // ═══════════════════════════════════════════════════
         async function getReliefRecommendations(divisionName) {
             console.log(`📋 Getting relief recommendations for: ${divisionName}`);
             
             const reliefContent = document.getElementById('reliefContent');
             reliefContent.innerHTML = `
                 <div class="loading">
-                    <i class="fas fa-spinner"></i>
-                    <p>Loading relief recommendations for ${divisionName}...</p>
-                    <p style="font-size: 0.8rem;">Querying Module 3 API...</p>
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Loading relief recommendations...</p>
+                    <p style="font-size: 0.8rem;">Division: ${divisionName}</p>
                 </div>
             `;
 
             try {
-                const response = await fetch(`http://localhost:5002/api/predict/${encodeURIComponent(divisionName)}`);
+                const response = await fetch(`${API_BASE}/api/predict/${encodeURIComponent(divisionName)}`);
                 const data = await response.json();
 
                 if (data.success) {
                     displayReliefRecommendations(data);
+                    console.log('✅ Relief recommendations loaded');
                 } else {
                     throw new Error(data.error || 'Unknown error');
                 }
             } catch (error) {
-                console.error('Error:', error);
+                console.error('Relief error:', error);
                 reliefContent.innerHTML = `
                     <div class="error-message">
                         <i class="fas fa-exclamation-circle"></i>
                         <strong>Error loading recommendations</strong>
                         <p>${error.message}</p>
-                        <p style="margin-top: 0.5rem; font-size: 0.8rem;">Make sure Module 3 is running on port 5002</p>
+                        <p style="margin-top: 0.5rem; font-size: 0.8rem;">
+                            Make sure the server is running on port 5001
+                        </p>
                     </div>
                 `;
             }
         }
 
         function displayReliefRecommendations(data) {
-            const html = `
+            const reliefContent = document.getElementById('reliefContent');
+            
+            reliefContent.innerHTML = `
                 <div style="margin-bottom: 1rem;">
                     <div class="stat-card highlight" style="margin-bottom: 1rem;">
                         <div class="stat-value">${data.division}</div>
@@ -470,7 +927,9 @@
                             <div class="stat-label">Affected Population</div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-value">${data.overall_priority}</div>
+                            <div class="stat-value">
+                                <span class="priority-badge priority-${data.overall_priority}">${data.overall_priority}</span>
+                            </div>
                             <div class="stat-label">Priority Level</div>
                         </div>
                     </div>
@@ -519,324 +978,22 @@
                     ` : ''}
                 </div>
             `;
-            
-            document.getElementById('reliefContent').innerHTML = html;
         }
 
-        // ============================================================
-        // LOAD FLOOD RESULTS FROM MODULE 1
-        // ============================================================
-
-        async function loadResults() {
-            const statsContent = document.getElementById('statsContent');
-            statsContent.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-spinner fa-spin"></i>
-                    <p>Loading flood data from Module 1...</p>
-                </div>
-            `;
-
-            try {
-                // Try to get GeoJSON results
-                const geojsonResponse = await fetch('http://localhost:5001/geojson');
-
-                if (!geojsonResponse.ok) {
-                    throw new Error('No results found');
-                }
-
-                const geojsonData = await geojsonResponse.json();
-
-                // Display on map
-                if (floodLayer) {
-                    map.removeLayer(floodLayer);
-                }
-
-                floodLayer = L.geoJSON(geojsonData, {
-                    style: function (feature) {
-                        var priority = feature.properties.priority_label || 'No Flood';
-
-                        var colors = {
-                            'High': { fill: '#dc2626', opacity: 0.6 },
-                            'Medium': { fill: '#f97316', opacity: 0.5 },
-                            'Low': { fill: '#fef08a', opacity: 0.4 },
-                            'No Flood': { fill: '#e0e0e0', opacity: 0.2 }
-                        };
-
-                        var color = colors[priority] || colors['No Flood'];
-
-                        return {
-                            fillColor: color.fill,
-                            weight: 1.5,
-                            opacity: 1,
-                            color: priority === 'No Flood' ? '#ccc' : '#fff',
-                            fillOpacity: color.opacity
-                        };
-                    },
-                    onEachFeature: function (feature, layer) {
-                        if (feature.properties) {
-                            var props = feature.properties;
-
-                            // Priority badge colors
-                            var priorityColors = {
-                                'High': '#dc2626',
-                                'Medium': '#f97316',
-                                'Low': '#22c55e',
-                                'No Flood': '#6b7280'
-                            };
-
-                            var priorityColor = priorityColors[props.priority_label] || '#6b7280';
-
-                            var popupContent = `
-            <div style="font-family: 'Segoe UI', sans-serif; min-width: 200px;">
-                <h3 style="color: #0f3b2c; margin: 0 0 10px 0; font-size: 1.1rem; border-bottom: 2px solid #1a6b4a; padding-bottom: 8px;">
-                    ${props.adm3_name || props.ds_division || 'Division'}
-                </h3>
-                
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
-                    <div style="background: #f0fdf4; padding: 8px; border-radius: 6px;">
-                        <div style="font-size: 0.7rem; color: #666; text-transform: uppercase;">Flood Area</div>
-                        <div style="font-size: 1.1rem; font-weight: bold; color: #0f3b2c;">${props.flood_area_ha || 0} ha</div>
-                    </div>
-                    <div style="background: #f0fdf4; padding: 8px; border-radius: 6px;">
-                        <div style="font-size: 0.7rem; color: #666; text-transform: uppercase;">Max Depth</div>
-                        <div style="font-size: 1.1rem; font-weight: bold; color: #0f3b2c;">${props.flood_depth_max || 0} m</div>
-                    </div>
-                </div>
-                
-                <div style="background: #f8f9fa; padding: 8px; border-radius: 6px; margin-bottom: 8px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-size: 0.8rem; color: #666;">Avg Depth</span>
-                        <span style="font-weight: bold; color: #0f3b2c;">${props.flood_depth_mean || 0} m</span>
-                    </div>
-                </div>
-                
-                <div style="text-align: center; margin-top: 10px;">
-                    <span style="display: inline-block; padding: 4px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; color: white; background: ${priorityColor};">
-                        ${props.priority_label || 'No Flood'}
-                    </span>
-                </div>
-            </div>
-        `;
-
-                            layer.bindPopup(popupContent, { maxWidth: 300 });
-                        }
-                    }
-                }).addTo(map);
-
-                map.fitBounds(floodLayer.getBounds());
-
-                // Display stats
-                displayStats(geojsonData);
-
-            } catch (error) {
-                console.log('GeoJSON not available, trying /results endpoint...');
-
-                try {
-                    const resultsResponse = await fetch('http://localhost:5001/results');
-
-                    if (!resultsResponse.ok) {
-                        throw new Error('No results in database');
-                    }
-
-                    const resultsData = await resultsResponse.json();
-
-                    if (resultsData.success && resultsData.data) {
-                        displayStatsFromDB(resultsData.data);
-                    }
-
-                } catch (dbError) {
-                    statsContent.innerHTML = `
-                        <div class="empty-state">
-                            <i class="fas fa-exclamation-circle"></i>
-                            <p><strong>No flood detection results available</strong></p>
-                            <p>Upload satellite imagery to get started</p>
-                            <a href="upload.html" class="btn-upload" style="display: inline-flex; margin-top: 1rem;">
-                                <i class="fas fa-upload"></i> Upload Data
-                            </a>
-                        </div>
-                    `;
-                }
-            }
-        }
-
-        function displayStats(geojsonData) {
-            const statsContent = document.getElementById('statsContent');
-
-            const features = geojsonData.features || [];
-
-            // Count divisions that actually have flood
-            let floodedDivisions = 0;
-            let totalFloodArea = 0;
-            let highPriorityDivisions = 0;
-            let mediumPriorityDivisions = 0;
-            let lowPriorityDivisions = 0;
-
-            features.forEach(f => {
-                if (f.properties) {
-                    // Use flood_area_ha (hectares), not area
-                    const area = f.properties.flood_area_ha || 0;
-                    const priority = f.properties.priority_label || 'No Flood';
-
-                    if (area > 0) {
-                        floodedDivisions++;
-                        totalFloodArea += area;
-
-                        // Count by priority
-                        if (priority === 'High') highPriorityDivisions++;
-                        else if (priority === 'Medium') mediumPriorityDivisions++;
-                        else if (priority === 'Low') lowPriorityDivisions++;
-                    }
-                }
-            });
-
-            // Convert hectares to km² for display
-            const totalAreaKm2 = totalFloodArea / 100;
-
-            // Check if there's any flood
-            if (floodedDivisions === 0) {
-                statsContent.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-check-circle" style="color: #22c55e;"></i>
-                <p><strong>No Flooding Detected</strong></p>
-                <p>All ${features.length} divisions are clear</p>
-                <p style="font-size: 0.8rem; color: #888;">
-                    Try adjusting threshold parameters if flooding is expected
-                </p>
-            </div>
-        `;
-                return;
-            }
-
-            // Determine severity level
-            let severityColor, severityText;
-            if (totalAreaKm2 > 10 || highPriorityDivisions > 3) {
-                severityColor = '#dc2626';
-                severityText = 'Severe Flood Event';
-            } else if (totalAreaKm2 > 5 || highPriorityDivisions > 0) {
-                severityColor = '#f97316';
-                severityText = 'Moderate Flood Event';
-            } else {
-                severityColor = '#eab308';
-                severityText = 'Minor Flood Event';
-            }
-
-            const html = `
-        <div class="stats-grid">
-            <div class="stat-card highlight">
-                <div class="stat-value">${floodedDivisions}</div>
-                <div class="stat-label">Affected Divisions</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">${totalAreaKm2.toFixed(2)} km²</div>
-                <div class="stat-label">Total Flooded Area</div>
-            </div>
-        </div>
+        // ═══════════════════════════════════════════════════
+        // INITIALIZATION
+        // ═══════════════════════════════════════════════════
+        console.log('🌊 Flood Relief Dashboard Initializing...');
+        console.log(`📡 Connecting to: ${API_BASE}`);
         
+        checkServerStatus();
+        loadAllData();
         
+        // Auto-refresh
+        setInterval(checkServerStatus, 15000);  // Every 15 seconds
+        setInterval(loadAllData, 60000);         // Every 60 seconds
         
-        <div style="margin-top: 0.8rem; padding: 0.8rem; background: #e8f5e9; border-radius: 10px; text-align: center;">
-            <span class="severity-badge" style="background: ${severityColor};">${severityText}</span>
-            <p style="margin-top: 0.5rem; font-size: 0.8rem; color: #0f3b2c;">
-                <i class="fas fa-clock"></i> Last updated: ${new Date().toLocaleString()}
-            </p>
-            <p style="font-size: 0.75rem; color: #666; margin-top: 0.3rem;">
-                <i class="fas fa-info-circle"></i> Total divisions: ${features.length}
-            </p>
-        </div>
-    `;
-
-            statsContent.innerHTML = html;
-        }
-
-        function displayStatsFromDB(data) {
-            const statsContent = document.getElementById('statsContent');
-
-            // If data is an array of division records
-            const divisions = Array.isArray(data) ? data : (data.divisions || []);
-
-            let floodedDivisions = 0;
-            let totalFloodArea = 0;
-            let highPriority = 0;
-            let mediumPriority = 0;
-            let lowPriority = 0;
-
-            divisions.forEach(div => {
-                const area = div.flood_area_ha || 0;
-                if (area > 0) {
-                    floodedDivisions++;
-                    totalFloodArea += area;
-
-                    // const priority = div.priority_label || 'No Flood';
-                    // if (priority === 'High') highPriority++;
-                    // else if (priority === 'Medium') mediumPriority++;
-                    // else if (priority === 'Low') lowPriority++;
-                }
-            });
-
-            const totalAreaKm2 = totalFloodArea / 100;
-
-            if (floodedDivisions === 0) {
-                statsContent.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-database"></i>
-                <p><strong>No Flood Data Available</strong></p>
-                <p>Upload satellite imagery and process to see results</p>
-                <a href="upload.html" class="btn-upload" style="display: inline-flex; margin-top: 1rem;">
-                    <i class="fas fa-upload"></i> Upload Data
-                </a>
-            </div>
-        `;
-                return;
-            }
-
-            const html = `
-        <div class="stats-grid">
-            <div class="stat-card highlight">
-                <div class="stat-value">${floodedDivisions}</div>
-                <div class="stat-label">Affected Divisions</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">${totalAreaKm2.toFixed(2)} km²</div>
-                <div class="stat-label">Total Flood Area</div>
-            </div>
-        </div>
-        
-        <div class="stats-grid" style="margin-top: 0.5rem;">
-            <div class="stat-card" style="border-color: #dc2626;">
-                <div class="stat-value" style="color: #dc2626;">${highPriority}</div>
-                <div class="stat-label">High</div>
-            </div>
-            <div class="stat-card" style="border-color: #f97316;">
-                <div class="stat-value" style="color: #f97316;">${mediumPriority}</div>
-                <div class="stat-label">Medium</div>
-            </div>
-            <div class="stat-card" style="border-color: #eab308;">
-                <div class="stat-value" style="color: #eab308;">${lowPriority}</div>
-                <div class="stat-label">Low</div>
-            </div>
-        </div>
-        
-        <div style="margin-top: 0.8rem; padding: 0.8rem; background: #e8f5e9; border-radius: 10px; text-align: center;">
-            <span class="severity-badge" style="background: #f97316;">Data from Supabase</span>
-            <p style="margin-top: 0.5rem; font-size: 0.8rem; color: #0f3b2c;">
-                <i class="fas fa-database"></i> Retrieved from Supabase
-            </p>
-        </div>
-    `;
-
-            statsContent.innerHTML = html;
-        }
-
-        // Initial loads
-        checkAPIStatus();
-        loadResults();
-
-        // Auto-refresh every 30 seconds
-        setInterval(loadResults, 30000);
-        setInterval(checkAPIStatus, 10000);
-
-        console.log("Flood Detection Dashboard ready!");
+        console.log('✅ Dashboard ready!');
     </script>
 </body>
-
 </html>
