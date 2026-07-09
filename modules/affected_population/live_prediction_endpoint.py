@@ -2,6 +2,7 @@ import os
 import joblib
 import pandas as pd
 import numpy as np
+from scipy.spatial import cKDTree
  
 class LivePopulationRiskEndpoint:
     def __init__(self):
@@ -25,10 +26,11 @@ class LivePopulationRiskEndpoint:
 
     def predict_realtime_demographics(self, input_precip_mm, flood_tiff_path=None):
         """
-        Optimized Tabular Matrix Extraction using Raster Mask coordinates.
-        Direct Pandas mapping over the 11-million-row matrix bypassing heavy GeoPandas joins.
+        Stream-optimized Tabular Matrix Extraction with Dynamic Raster Resampling
+        from 30m down to a conservative 100m feature grid matrix.
         """
         import rasterio
+        from rasterio.enums import Resampling
         import time
 
         # 1. Establish path boundaries to your local 11-million row reference master file
@@ -50,50 +52,139 @@ class LivePopulationRiskEndpoint:
 
         start_time = time.time()
 
-        # Step 1: Extract coordinates from Module 1 Raster Mask
-        print("🔍 Step 1: Extracting coordinate vectors from Module 1 raster mask...")
-        with rasterio.open(flood_tiff_path) as src:
-            flood_band = src.read(1)
-            rows, cols = np.where(flood_band == 255)
-            x_coords, y_coords = rasterio.transform.xy(src.transform, rows, cols)
+    # =============================================================================
+    # Step 1: CONSERVATIVE RASTER RESAMPLING (30m -> 100m Grid)"
+    # Paste this in place of the existing Step 1 block inside predict_realtime_demographics().
+    # Everything before it (file checks) and after it (Step 2 onward: CSV matching,
+    # ML prediction, aggregation, demographic split, JSON payload) is unchanged.
+    # =============================================================================
 
-        print(f"   -> Found {len(x_coords):,} raw flooded pixels inside raster file.")
+        print("🔍 Step 1: Resampling flood mask to a true 100m grid (metric CRS)...")
+
+        try:
+            from rasterio.warp import calculate_default_transform, reproject, transform as warp_transform
+            from rasterio.enums import Resampling
+
+            # Target ground resolution in meters (this is now REAL, not hardcoded pixel counts)
+            TARGET_RESOLUTION_M = 90
+
+            # Sri Lanka / Gampaha falls in UTM Zone 44N -> EPSG:32644.
+            # Using a projected CRS means "100" below is genuinely 100 meters,
+            # unlike doing this directly in EPSG:4326 (degrees).
+            PROJECTED_CRS = "EPSG:32644"
+
+            with rasterio.open(flood_tiff_path) as src:
+                raw_data = src.read(1)
+
+                # 1. Compute a transform + grid size that corresponds to an EXACT
+                #    100m x 100m cell size in the projected CRS, derived from the
+                #    source raster's own bounds (no hardcoded magic numbers).
+                dst_transform, dst_width, dst_height = calculate_default_transform(
+                    src.crs, PROJECTED_CRS,
+                    src.width, src.height,
+                    *src.bounds,
+                    resolution=(TARGET_RESOLUTION_M, TARGET_RESOLUTION_M)
+                )
+
+                flood_band = np.zeros((dst_height, dst_width), dtype=raw_data.dtype)
+
+                # 2. Reproject + resample in one step, straight into the metric grid.
+                #    Resampling.max preserves your conservative "any wet sub-pixel
+                #    -> cell marked flooded" behavior.
+                reproject(
+                    source=raw_data,
+                    destination=flood_band,
+                    src_transform=src.transform,
+                    src_crs=src.crs,
+                    dst_transform=dst_transform,
+                    dst_crs=PROJECTED_CRS,
+                    resampling=Resampling.max
+                )
+
+                # 3. Locate flooded cells in the new 100m grid (row/col space)
+                rows, cols = np.where(flood_band == 255)
+
+                # 4. Convert row/col -> UTM (x, y) cell-center coordinates
+                utm_x, utm_y = rasterio.transform.xy(dst_transform, rows, cols)
+
+                # 5. Convert UTM coordinates back to lon/lat (EPSG:4326) since the
+                #    reference master CSV stores Longitude/Latitude in degrees.
+                #    This keeps Step 2 (coordinate matching against the CSV)
+                #    completely unchanged.
+                if len(utm_x) > 0:
+                    x_coords, y_coords = warp_transform(PROJECTED_CRS, "EPSG:4326", utm_x, utm_y)
+                else:
+                    x_coords, y_coords = [], []
+
+            print(f"   -> Resampling complete at true {TARGET_RESOLUTION_M}m resolution.")
+            print(f"   -> Grid size: {dst_width} x {dst_height} cells "
+                  f"(derived from raster bounds, not hardcoded).")
+            print(f"   -> Found {len(x_coords):,} active flooded grid cells.")
+
+        except Exception as tiff_err:
+            print(f"❌ [Module 2 Reproject Crash] Failed to warp raster: {tiff_err}")
+            return {"status": "FAILED", "error": f"Raster transformation error: {tiff_err}"}
+
         if len(x_coords) == 0:
-            print("✅ [Module 2] Processing halted: 0 flooded pixels detected.")
+            print("✅ [Module 2] Processing halted: 0 flooded cells detected.")
             return {"status": "SUCCESS", "demographic_data": []}
+
 
         # ====================================================================
         # CRITICAL PRECISION ALIGNMENT CORRECTION
         # Round both coordinate arrays to exactly 4 decimal places (~11 meters)
         # This ensures pixels snap together perfectly without dropping rows.
         # ====================================================================
-        # Step 2: Build operational index dataframe
-        df_flooded_pixels = pd.DataFrame({
-            'Longitude': np.round(x_coords, 4),
-            'Latitude': np.round(y_coords, 4)
-        })
-        # Remove duplicate grid cell entries within the same 11m block
-        df_flooded_pixels.drop_duplicates(inplace=True)
-        print(f"   -> Consolidated to {len(df_flooded_pixels):,} unique coordinates at 11m grid resolution.")
+        # Step 2: Build STANDARDIZED SEARCH LOOKUP INDEX
+        # -----------------------------------------------------------------------
+        # PART B - PRODUCTION FIX: replace the exact-match merge with KD-tree
+        # nearest-neighbor snapping. Paste this in place of the block that starts
+        # at "df_flooded_pixels = pd.DataFrame(...)" and runs through
+        # "df_work = pd.concat(matched_chunks, ignore_index=True)".
+        # -----------------------------------------------------------------------
 
-        # Step 3: Stream Ingestion via Chunking to prevent RAM Allocation Crashes
+
+        # Maximum allowed snap distance, in the SAME units as Longitude/Latitude
+        # (degrees). Diagnostic (Part A) showed the master CSV's real grid spacing
+        # is ~0.000811 deg (~90m at this latitude), NOT 100m. Half a cell diagonal
+        # is the natural tolerance: (90m / 2) * sqrt(2) ~= 64m ~= 0.00058 deg.
+        # Anything farther than that is treated as "no match" rather than silently
+        # joined to the wrong cell.
+        MAX_SNAP_DEGREES = 0.00058
+
+        # NOTE: also update Step 1's TARGET_RESOLUTION_M from 100 to 90 to match
+        # the master CSV's actual native grid resolution confirmed by the
+        # diagnostic - resampling the flood mask to 100m when the reference data
+        # is really on a 90m grid introduces avoidable alignment error.
+
         print("📖 Step 2: Streaming reference baseline matrix arrays (Low-RAM Chunking)...")
+
+        # Build the KD-tree once from the flooded pixel centroids (not the master
+        # file, since the master file is far larger and we stream it in chunks).
+        flood_coords = np.column_stack([x_coords, y_coords])  # [:,0]=lon, [:,1]=lat
+        flood_tree = cKDTree(flood_coords)
+
         matched_chunks = []
         chunk_idx = 0
         total_rows_scanned = 0
+        unmatched_reason_offset = 0
 
-        # We read 1 million rows at a time so your system never runs out of RAM
-        for chunk in pd.read_csv(master_file, chunksize=1000000):
+        for chunk in pd.read_csv(master_file, chunksize=1_000_000):
             chunk_idx += 1
             total_rows_scanned += len(chunk)
 
-            chunk['Longitude'] = np.round(chunk['Longitude'], 4)
-            chunk['Latitude'] = np.round(chunk['Latitude'], 4)
+            chunk_coords = chunk[["Longitude", "Latitude"]].values
+            distances, nearest_idx = flood_tree.query(chunk_coords, k=1)
 
-            # Match current chunk coordinates against flooded pixels
-            merged_chunk = pd.merge(chunk, df_flooded_pixels, on=['Longitude', 'Latitude'], how='inner')
-            if len(merged_chunk) > 0:
-                matched_chunks.append(merged_chunk)
+            within_range = distances <= MAX_SNAP_DEGREES
+            if within_range.any():
+                matched_rows = chunk.loc[within_range].copy()
+                # Record which flooded-pixel index each matched row snapped to,
+                # so duplicate flooded-pixel hits can be deduplicated afterward
+                # (keeps 1 master row per flooded cell: the closest one).
+                matched_rows["_flood_pixel_idx"] = nearest_idx[within_range]
+                matched_rows["_snap_distance_deg"] = distances[within_range]
+                matched_chunks.append(matched_rows)
 
             print(f"   -> Scanned chunk {chunk_idx}: {total_rows_scanned:,} total rows evaluated...")
 
@@ -101,11 +192,46 @@ class LivePopulationRiskEndpoint:
             print("⚠️ [Module 2 Warning] Coordinates matched 0 entries across all 11 million rows!")
             return {"status": "SUCCESS", "demographic_data": [], "note": "No coordinate overlapping found."}
 
-        # Combine only the matched coordinates
-        df_work = pd.concat(matched_chunks, ignore_index=True)
-        print(f"🎯 Step 3: SUCCESS! Matched {len(df_work):,} rows within the active flood zone matrix.")
+        df_all_candidates = pd.concat(matched_chunks, ignore_index=True)
 
-        # Print quick coordinate checkpoint summary directly to your console log
+        # If multiple master rows snapped to the same flooded pixel, keep only the
+        # closest one per flooded pixel - this fixes the earlier symptom where
+        # matched-row count (13,284) exceeded flooded-cell count (13,024).
+        df_work = (
+            df_all_candidates
+            .sort_values("_snap_distance_deg")
+            .drop_duplicates(subset="_flood_pixel_idx", keep="first")
+            .drop(columns=["_flood_pixel_idx", "_snap_distance_deg"])
+            .reset_index(drop=True)
+        )
+
+        print(f"🎯 Step 3: SUCCESS! Matched {len(df_work):,} rows within the active flood zone matrix "
+              f"(nearest-neighbor snap, max {MAX_SNAP_DEGREES} deg ~ 65m).")
+
+        # Sanity check against the diagnostic's district-wide baseline (30.2% zero).
+        # If this comes out much higher than ~30%, the flood cells are still
+        # preferentially landing on unpopulated ground-truth points and the
+        # alignment issue isn't fully resolved.
+        matched_zero_rate = (df_work['Ghs_Pop_Baseline'] == 0).mean() * 100
+        print(f"   -> Matched-row zero-population rate: {matched_zero_rate:.1f}% "
+              f"(district-wide baseline: 30.2%)")
+
+
+        # Sanity check: how much raw baseline population sits inside the matched
+        # flooded cells, vs. how much the model ultimately predicts as "affected".
+        # A very low affected/baseline ratio could mean either (a) the model is
+        # correctly discounting because occupancy/severity features say most
+        # people evacuated or weren't home, or (b) something upstream (features,
+        # rainfall input, model calibration) is suppressing predictions. This
+        # print doesn't fix anything - it just gives you the number to judge that.
+        baseline_pop_sum = df_work['Ghs_Pop_Baseline'].sum()
+        ambient_pop_sum = df_work['Ambient_Pop_Landscan'].sum() if 'Ambient_Pop_Landscan' in df_work.columns else float('nan')
+        print(f"   -> Total Ghs_Pop_Baseline in matched cells: {baseline_pop_sum:,.0f}")
+        print(f"   -> Total Ambient_Pop_Landscan in matched cells: {ambient_pop_sum:,.0f}")
+        print(f"   -> Rainfall input for this run (Precip_Mm): {input_precip_mm}")
+
+
+# Print quick coordinate checkpoint summary directly to your console log
         print("\n📍 --- ACTIVE MATCHED COORDINATES CHECKPOINT ---")
         print(df_work[['Ds_Division_Name', 'Longitude', 'Latitude', 'Ghs_Pop_Baseline']].head(5).to_string(index=False))
         print("--------------------------------------------------")
@@ -128,9 +254,52 @@ class LivePopulationRiskEndpoint:
 
         X_live = df_work[features].values
 
+        # --- DIAGNOSTIC BLOCK 1: paste after "X_live = df_work[features].values" ---
+        sample_n = min(5, len(df_work))
+        print("\n🔬 --- FEATURE DIAGNOSTIC (first " f"{sample_n} matched rows) ---")
+        diag_cols = ['Ds_Division_Name', 'Ghs_Pop_Baseline', 'Ambient_Pop_Landscan',
+                     'Precip_Mm', 'Severity_Weight', 'Occupancy_Adj',
+                     'Is_Holiday', 'Is_Weekend', 'Built_Up_Ratio']
+        diag_cols = [c for c in diag_cols if c in df_work.columns]
+        print(df_work[diag_cols].head(sample_n).to_string(index=False))
+
+        # Confirm whether Ambient_Pop_Landscan is genuinely zero for every matched
+        # row, or just these first few - this tells us if it's a real data issue
+        # or just how these particular rows happened to look.
+        print(f"   -> Ambient_Pop_Landscan: min={df_work['Ambient_Pop_Landscan'].min()}, "
+              f"max={df_work['Ambient_Pop_Landscan'].max()}, "
+              f"non-zero rows={(df_work['Ambient_Pop_Landscan'] != 0).sum()} / {len(df_work)}")
+
+        # Confirm Precip_Mm actually made it into every row correctly.
+        print(f"   -> Precip_Mm: min={df_work['Precip_Mm'].min()}, "
+              f"max={df_work['Precip_Mm'].max()}, "
+              f"unique values={df_work['Precip_Mm'].unique()}")
+        print("--------------------------------------------------")
+
         # 3. High-speed vector prediction via pre-loaded blueprints (No historical data reading needed)
         mu_log = self.mean_model.predict(X_live)
         log_var = self.var_model.predict(X_live)
+
+        # --- DIAGNOSTIC BLOCK 2: paste after "log_var = self.var_model.predict(X_live)" ---
+        print("\n🔬 --- MODEL LOG-SCALE OUTPUT DIAGNOSTIC (first "
+              f"{sample_n} matched rows) ---")
+        print(f"   -> mu_log     : {np.round(mu_log[:sample_n], 4)}")
+        print(f"   -> log_var    : {np.round(log_var[:sample_n], 4)}")
+        print(f"   -> mu_log stats across ALL {len(mu_log)} matched rows: "
+              f"min={mu_log.min():.4f}, median={np.median(mu_log):.4f}, max={mu_log.max():.4f}")
+        print(f"   -> expm1(mu_log) stats (i.e. raw predicted count before capping): "
+              f"min={np.expm1(mu_log.min()):.4f}, "
+              f"median={np.expm1(np.median(mu_log)):.4f}, "
+              f"max={np.expm1(mu_log.max()):.4f}")
+
+        # If mu_log barely changes across rows despite very different
+        # Ghs_Pop_Baseline / Precip_Mm values, the model isn't responding to
+        # those features the way you'd expect - worth comparing against training
+        # data ranges for Precip_Mm (was the model ever trained on ~150mm events,
+        # or mostly smaller rainfall values where near-zero output is correct?).
+        print(f"   -> mu_log std deviation across all rows: {mu_log.std():.4f} "
+              f"(near-zero std means the model output barely varies row to row)")
+        print("--------------------------------------------------")
 
         # Calculate localized uncertainty ranges across the grid cells
         sigma_log = np.sqrt(np.exp(np.clip(log_var, -10, 10)))
