@@ -153,7 +153,9 @@ try:
     risk_engine = LivePopulationRiskEndpoint()
     print("✅ Module 2 loaded successfully!")
 except Exception as e:
+    import traceback
     print(f"❌ Module 2 failed to load: {e}")
+    traceback.print_exc()
     risk_engine = None
 
 # ─── INITIALIZE MODULE 3 ─────────────────────────────────
@@ -313,44 +315,24 @@ def process():
         # Save Module 1 results to Supabase
         db = FloodDetectionDatabase(config)
         db.save_results(flood_results['gdf'], flood_results['stats'], event_date)
-        
+
+        # TARGET DATA SOURCE REFERENCE
+        raster_output_path = str(PROJECT_ROOT / 'interface' / 'backend' / 'outputs' / 'flood_extent_4326.tif')
+
         # ─── MODULE 2: POPULATION PREDICTION ──────────────
         population_results = None
         
         if risk_engine:
-            try:
-                print("👥 Running Module 2: Population Prediction...")
-                live_grid_df = flood_results['gdf'].copy()
-                
-                # Ensure Ds_Division_Name exists
-                if 'Ds_Division_Name' not in live_grid_df.columns:
-                    live_grid_df['Ds_Division_Name'] = live_grid_df.get(
-                        'adm3_name', 
-                        live_grid_df.get('ds_division', 'Unknown')
-                    )
-                
-                # Run prediction
-                population_results = risk_engine.predict_realtime_demographics(
-                    live_grid_df=live_grid_df, 
-                    input_precip_mm=input_precip_mm
-                )
-                
-                if population_results.get('status') == 'SUCCESS':
-                    total = sum(d['summary_metrics']['predicted_mean_affected'] 
-                               for d in population_results['demographic_data'])
-                    print(f"✅ Module 2 complete! Total affected: {total:,}")
-                    
-                    # ✅ SAVE TO SUPABASE
-                    save_population_to_supabase(population_results, event_date)
-                    
-            except Exception as pop_error:
-                import traceback
-                print(f"⚠️ Module 2 error: {pop_error}")
-                print(traceback.format_exc())
-                population_results = {"status": "FAILED", "error": str(pop_error)}
-        else:
-            population_results = {"status": "UNAVAILABLE", "error": "Module 2 not loaded"}
-        
+            print("👥 Running Module 2: High-Speed Raster Matrix Mapping...")
+            population_results = risk_engine.predict_realtime_demographics(
+                input_precip_mm=input_precip_mm,
+                flood_tiff_path=raster_output_path
+            )
+
+            if population_results.get('status') == 'SUCCESS':
+                # ✅ SAVE TO SUPABASE
+                save_population_to_supabase(population_results, event_date)
+
         # Store in memory
         latest_results['flood'] = flood_results
         latest_results['population'] = population_results
@@ -435,47 +417,27 @@ def get_population():
         return jsonify({'status': 'ERROR', 'error': 'Module 2 not loaded'}), 503
     
     try:
-        import pandas as pd
-        
-        data = request.get_json()
-        geojson_data = data.get('geojson', {})
+        # OPTIMIZATION: If we already computed the population map for this run, return it instantly!
+        if latest_results.get('population') is not None:
+            print("🚀 Serving cached Module 2 population data to dashboard instantly!")
+            return jsonify(latest_results['population'])
+
+        data = request.get_json() or {}
         precipitation = float(data.get('precipitation', 150))
-        
-        # Convert GeoJSON to DataFrame
-        features = []
-        for feature in geojson_data.get('features', []):
-            props = feature.get('properties', {})
-            features.append(props)
-        
-        live_grid_df = pd.DataFrame(features)
-        
-        if 'Ds_Division_Name' not in live_grid_df.columns:
-            live_grid_df['Ds_Division_Name'] = live_grid_df.get(
-                'adm3_name', 
-                live_grid_df.get('ds_division', 'Unknown')
-            )
-        
+        raster_output_path = str(PROJECT_ROOT / 'interface' / 'backend' / 'outputs' / 'flood_extent_4326.tif')
+
         population_results = risk_engine.predict_realtime_demographics(
-            live_grid_df=live_grid_df, 
-            input_precip_mm=precipitation
+            input_precip_mm=precipitation,
+            flood_tiff_path=raster_output_path
         )
-        
+
         latest_results['population'] = population_results
-        
-        # Also save to Supabase if successful
         if population_results.get('status') == 'SUCCESS':
             save_population_to_supabase(population_results)
-        
-        return jsonify(population_results)
-        
-    except Exception as e:
-        import traceback
-        return jsonify({
-            'status': 'ERROR',
-            'error': str(e),
-            'trace': traceback.format_exc()
-        }), 500
 
+        return jsonify(population_results)
+    except Exception as e:
+        return jsonify({'status': 'ERROR', 'error': str(e)}), 500
 
 @app.route('/population/divisions', methods=['GET'])
 def get_population_divisions():
@@ -534,4 +496,4 @@ if __name__ == '__main__':
     print(f"📍 Relief:  http://localhost:5001/api/predict/Gampaha")
     print("=" * 60 + "\n")
     
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    app.run(debug=False, host='0.0.0.0', port=5001)

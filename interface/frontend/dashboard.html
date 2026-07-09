@@ -755,6 +755,11 @@
             const totalUpperRisk = data.demographic_data.reduce((sum, d) => 
                 sum + d.summary_metrics.conservative_upper_risk_limit, 0);
 
+            const totalMale = data.demographic_data.reduce((sum, d) => sum + d.gender_demographics.male_count, 0);
+            const totalFemale = data.demographic_data.reduce((sum, d) => sum + d.gender_demographics.female_count, 0);
+            const totalChildren = data.demographic_data.reduce((sum, d) => sum + d.age_demographics.children_count_0_14, 0);
+            const totalElderly = data.demographic_data.reduce((sum, d) => sum + d.age_demographics.elderly_count_60_plus, 0);
+
             let topDivision = data.demographic_data[0];
             data.demographic_data.forEach(d => {
                 if (d.summary_metrics.predicted_mean_affected > topDivision.summary_metrics.predicted_mean_affected) {
@@ -766,19 +771,38 @@
                 <div class="stats-grid">
                     <div class="stat-card population">
                         <div class="stat-value">${totalAffected.toLocaleString()}</div>
-                        <div class="stat-label">Estimated Affected</div>
+                        <div class="stat-label">Total Estimated Affected</div>
                     </div>
                     <div class="stat-card" style="border-color: #dc2626;">
                         <div class="stat-value" style="color: #dc2626;">${totalUpperRisk.toLocaleString()}</div>
-                        <div class="stat-label">Upper Risk Limit</div>
+                        <div class="stat-label">Upper Risk Bound</div>
                     </div>
                 </div>
-                
+
+                <div class="stats-grid" style="margin-top: 0.5rem;">
+                    <div class="stat-card" style="padding: 0.6rem; border-color: #3b82f6;">
+                        <div style="font-weight: bold; color: #1e3a8a;">👨 ${totalMale.toLocaleString()}</div>
+                        <div style="font-size: 0.7rem; color: #555;">Males Affected</div>
+                    </div>
+                    <div class="stat-card" style="padding: 0.6rem; border-color: #ec4899;">
+                        <div style="font-weight: bold; color: #5c0632;">👩 ${totalFemale.toLocaleString()}</div>
+                        <div style="font-size: 0.7rem; color: #555;">Females Affected</div>
+                    </div>
+                    <div class="stat-card" style="padding: 0.6rem; border-color: #f59e0b;">
+                        <div style="font-weight: bold; color: #78350f;">👶 ${totalChildren.toLocaleString()}</div>
+                        <div style="font-size: 0.7rem; color: #555;">Children (0-14)</div>
+                    </div>
+                    <div class="stat-card" style="padding: 0.6rem; border-color: #10b981;">
+                        <div style="font-weight: bold; color: #064e3b;">👵 ${totalElderly.toLocaleString()}</div>
+                        <div style="font-size: 0.7rem; color: #555;">Elderly (60+)</div>
+                    </div>
+                </div>
+
                 <div style="background: #f0f9ff; padding: 10px; border-radius: 8px; margin-top: 0.5rem;">
                     <strong style="font-size: 0.85rem;">🔝 Most Affected Division:</strong>
                     <span style="font-weight: bold; color: #1a6b4a;">${topDivision.division_name}</span>
                     <span style="color: #666; font-size: 0.8rem;">
-                        (${topDivision.summary_metrics.predicted_mean_affected.toLocaleString()} people)
+                        (${topDivision.summary_metrics.predicted_mean_affected.toLocaleString()} people affected)
                     </span>
                 </div>
                 
@@ -841,9 +865,9 @@
             if (popData) {
                 html += `
                     <div style="background: #e8f5e9; padding: 10px; border-radius: 6px; margin-bottom: 10px; border-left: 3px solid #1a6b4a;">
-                        <div style="font-size: 0.7rem; color: #666; margin-bottom: 5px;">👥 POPULATION IMPACT</div>
+                        <div style="font-size: 0.7rem; color: #666; margin-bottom: 5px;">👥 LIVE DEMOGRAPHIC PREDICTIONS</div>
                         <div style="font-weight: bold; font-size: 1.1rem; color: #0f3b2c; margin-bottom: 6px;">
-                            ${popData.summary_metrics.predicted_mean_affected.toLocaleString()} affected
+                            ${popData.summary_metrics.predicted_mean_affected.toLocaleString()} people affected
                         </div>
                         <div class="demographics-grid">
                             <div>🚻 Male: ${popData.gender_demographics.male_count.toLocaleString()}</div>
@@ -991,7 +1015,7 @@
         
         // Auto-refresh
         setInterval(checkServerStatus, 15000);  // Every 15 seconds
-        setInterval(loadAllData, 60000);         // Every 60 seconds
+       //setInterval(loadAllData, 60000);         // Every 60 seconds
         
         console.log('✅ Dashboard ready!');
     </script>
