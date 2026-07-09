@@ -2,8 +2,16 @@ import os
 import joblib
 import pandas as pd
 import numpy as np
+import sys
 from scipy.spatial import cKDTree
- 
+
+# Dynamically find the absolute path of the folder this script lives in
+current_module_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Inject this directory into sys.path if it isn't already there
+if current_module_dir not in sys.path:
+    sys.path.insert(0, current_module_dir)
+
 class LivePopulationRiskEndpoint:
     def __init__(self):
         """
@@ -239,6 +247,12 @@ class LivePopulationRiskEndpoint:
         # Step 4: Run Machine Learning Models
         print("\n🔮 Step 4: Injecting rainfall context and generating predictions via .pkl engines...")
         df_work['Precip_Mm'] = input_precip_mm
+
+        # Import the newly created shared helper functions
+        from disaggregation_utility import compute_live_heuristic_features
+
+        # Dynamically synchronize the engineered features with the active live rainfall argument
+        df_work = compute_live_heuristic_features(df_work, input_precip_mm)
 
         features = [
             'Ghs_Pop_Baseline', 'Ghs_Built_S_Total', 'Ghs_Built_S_NonRes', 'Ghs_Built_V_Total',

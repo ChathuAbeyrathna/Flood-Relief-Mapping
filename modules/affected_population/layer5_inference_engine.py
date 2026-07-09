@@ -130,18 +130,12 @@ def run_layer5_inference_pipeline():
     df_raw = pd.read_csv(master_file)
 
     # ------------------------------------------------------------------
-    # INLINE CORRECTOR: Dasymetric Spatial Disaggregation
+    # INLINE CORRECTOR: UPGRADED BOUNDED DISAGGREGATION (OPTION A)
     # ------------------------------------------------------------------
-    print("Resolving Division-to-Pixel scale inflation anomaly in memory...")
-    div_pop_totals = df_raw.groupby(['Ds_Division_Name', 'Data_Year'])['Ghs_Pop_Baseline'].transform('sum')
-    df_raw['_pixel_pop_share'] = np.where(div_pop_totals > 0, df_raw['Ghs_Pop_Baseline'] / div_pop_totals, 0.0)
-    div_pixel_counts = df_raw.groupby(['Ds_Division_Name', 'Data_Year'])['Ghs_Pop_Baseline'].transform('count')
-    df_raw['_pixel_pop_share'] = np.where(div_pop_totals == 0, 1.0 / div_pixel_counts, df_raw['_pixel_pop_share'])
-
-    df_raw['Affected_People'] = df_raw['Affected_People'] * df_raw['_pixel_pop_share']
-    df_raw['Affected_Families'] = df_raw['Affected_Families'] * df_raw['_pixel_pop_share']
-    df_raw.drop(columns=['_pixel_pop_share'], inplace=True)
-    print(" -> Success: Target distribution balanced down to physical coordinates.")
+    print("Executing Option A Bounded Footprint Disaggregation...")
+    from disaggregation_utility import apply_bounded_disaggregation
+    df_raw = apply_bounded_disaggregation(df_raw)
+    print(" -> Success: Macro targets locked strictly to historical wet footprints.")
     # ------------------------------------------------------------------
 
     features = [

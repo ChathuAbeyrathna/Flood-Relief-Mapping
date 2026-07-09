@@ -21,13 +21,10 @@ def execute_and_serialize_production_models():
     print("Reading Consolidated Master Matrix for production lock...")
     df_raw = pd.read_csv(master_file)
 
-    # Apply inline disaggregation so model weights map safely onto physical coordinates
-    div_pop_totals = df_raw.groupby(['Ds_Division_Name', 'Data_Year'])['Ghs_Pop_Baseline'].transform('sum')
-    df_raw['_pixel_pop_share'] = np.where(div_pop_totals > 0, df_raw['Ghs_Pop_Baseline'] / div_pop_totals, 0.0)
-    div_pixel_counts = df_raw.groupby(['Ds_Division_Name', 'Data_Year'])['Ghs_Pop_Baseline'].transform('count')
-    df_raw['_pixel_pop_share'] = np.where(div_pop_totals == 0, 1.0 / div_pixel_counts, df_raw['_pixel_pop_share'])
-    df_raw['Affected_People'] = df_raw['Affected_People'] * df_raw['_pixel_pop_share']
-    df_raw.drop(columns=['_pixel_pop_share'], inplace=True)
+    # Apply Option A Bounded Disaggregation to production pipeline target pools
+    print("Structuring production matrices using Option A metrics...")
+    from disaggregation_utility import apply_bounded_disaggregation
+    df_raw = apply_bounded_disaggregation(df_raw)
 
     features = [
         'Ghs_Pop_Baseline', 'Ghs_Built_S_Total', 'Ghs_Built_S_NonRes', 'Ghs_Built_V_Total',
