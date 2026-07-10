@@ -9,7 +9,7 @@ def apply_bounded_disaggregation(df):
     that were actually impacted (where Affected_People > 0 initially or where
     the environmental criteria show active flooding).
     """
-    df = df.copy()
+    #df = df.copy()
 
     # Identify the rows that represent active flood locations in the historical data
     # (Pixels where historical ground-truth lists anomalies or high baseline presence)
@@ -17,11 +17,11 @@ def apply_bounded_disaggregation(df):
     is_impacted_footprint = (df['Affected_People'] > 0)
 
     # Calculate total population inside ONLY the flooded footprint per division per year
-    df['_flooded_pop_subtotal'] = df['Ghs_Pop_Baseline'] * is_impacted_footprint
-    div_flooded_pop_totals = df.groupby(['Ds_Division_Name', 'Data_Year'])['_flooded_pop_subtotal'].transform('sum')
+    df['_flooded_pop_subtotal'] = (df['Ghs_Pop_Baseline'] * is_impacted_footprint).astype('float32')
+    div_flooded_pop_totals = df.groupby(['Ds_Division_Name', 'Data_Year', 'Event_Date'])['_flooded_pop_subtotal'].transform('sum')
 
     # Calculate how many flooded pixels exist in each division event
-    div_flooded_pixel_counts = df.groupby(['Ds_Division_Name', 'Data_Year'])['_flooded_pop_subtotal'].transform('count')
+    div_flooded_pixel_counts = df.groupby(['Ds_Division_Name', 'Data_Year', 'Event_Date'])['_flooded_pop_subtotal'].transform('count')
 
     # Compute share: if a pixel isn't in the wet zone, its share is 0
     df['_pixel_share'] = np.where(
