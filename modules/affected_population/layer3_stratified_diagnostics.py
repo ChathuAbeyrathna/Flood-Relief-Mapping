@@ -7,7 +7,7 @@ from bartpy.diagnostics.features import feature_split_proportions    # Diagnosti
 
 def layer3_stratified_diagnostics():
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".." ))
-    master_file = os.path.join(base_dir, "data", "processed", "master", "Final_Training_Dataset_Gampaha.csv")
+    master_file = os.path.join(base_dir, "data", "processed", "master", "FinalN_Training_Dataset_Gampaha.csv")
     output_dir = os.path.join(base_dir, "data", "processed", "master")
 
     print("Loading Final Unified Dataset for Layer 3...")
@@ -21,17 +21,21 @@ def layer3_stratified_diagnostics():
         'Occupancy_Adj', 'Built_Up_Ratio', 'Weighted_Pop_Engineered', 'Ambient_Pop_Landscan'
     ]
 
-    # --- STRATIFIED SAMPLING LOGIC (Prevents Proxy Bias) ---
-    # We force the script to pull exactly 8,000 random rows from EACH historical year folder (Sample equal observations from every Data_Year.)
-    print("Executing Stratified Sampling across all study epochs...")
+    # --- UPDATED STRATIFIED SAMPLING LOGIC (Aligned to 100k Hardware Limits) ---
+    # We pool data only from the historical training horizon (Excluding 2025 Hold-out context)
+    unique_train_years = [2000, 2005, 2010, 2015, 2020]
+
+    # Scale allocation to exactly 20,000 rows per year based on hardware test limits
+    ROWS_PER_YEAR = 10000
+
+    print(f"Executing Scaled Stratified Sampling across training epochs ({ROWS_PER_YEAR} rows/year)...")
     sampled_dfs = []
-    # Loop through each historical year
-    for year in df['Data_Year'].unique():
-        # Extract only records from that year
+
+    for year in unique_train_years:
         year_subset = df[df['Data_Year'] == year]
-        # Pull 8,000 rows per year, ensuring every proxy year is perfectly represented
-        sample_n = min(8000, len(year_subset))
-        # Random sampling with fixed seed for reproducibility
+
+        # Pull 20,000 rows safely, dropping down to full availability if a year contains fewer rows
+        sample_n = min(ROWS_PER_YEAR, len(year_subset))
         sampled_dfs.append(year_subset.sample(n=sample_n, random_state=42))
 
     # Combine all yearly samples
@@ -48,7 +52,7 @@ def layer3_stratified_diagnostics():
     # n_samples:Number of posterior MCMC samples.
     # n_burn: Number of burn-in samples to discard. (Burn-in iterations discarded before inference.)
     # n_jobs: Number of parallel jobs to run for both `fit` and `predict`. -1 means using all processors.
-    model = SklearnModel(n_trees=50, n_samples=100, n_burn=30, n_jobs=1)
+    model = SklearnModel(n_trees=50, n_samples=100, n_burn=50, n_jobs=1)
     model.fit(X, y) # Fit the BART model to the stratified sample. Fit means the model learns the relationship between features and target variable.
 
     # --- EXTRACT FIS (feature importance score) LOGIC---
@@ -81,7 +85,7 @@ def layer3_stratified_diagnostics():
     print(fis_df.to_string(index=False))
     print("="*40)
     # Save feature importance table
-    fis_df.to_csv(os.path.join(output_dir, "layer3_stratified_feature_importance.csv"), index=False)
+    fis_df.to_csv(os.path.join(output_dir, "layer3N_stratified_feature_importance.csv"), index=False)
 
     # --- 5. GENERATE PARTIAL DEPENDENCE PLOT ---
     print("\nGenerating Partial Dependence Plot for Weighted_Pop_Engineered...")
@@ -105,7 +109,7 @@ def layer3_stratified_diagnostics():
     plt.ylabel('Marginal Value on Predicted Affected Counts', fontsize=10)
     plt.grid(True, linestyle='--', alpha=0.5)
     # Save plot
-    plot_path = os.path.join(output_dir, "layer3_pdp_engineered_pop.png")
+    plot_path = os.path.join(output_dir, "layer3n_pdp_engineered_pop.png")
     plt.savefig(plot_path, dpi=300, bbox_inches='tight')
     plt.close()
     print(f"SUCCESS: Partial dependence plot saved to {plot_path}")

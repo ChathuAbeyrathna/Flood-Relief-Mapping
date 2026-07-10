@@ -5,7 +5,7 @@ from bartpy.sklearnmodel import SklearnModel  # imports the BART model
 
 def find_hardware_limit():
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".." ))
-    master_file = os.path.join(base_dir, "data", "processed", "master", "Final_Training_Dataset_Gampaha.csv")
+    master_file = os.path.join(base_dir, "data", "processed", "master", "FinalN_Training_Dataset_Gampaha.csv")
 
     df = pd.read_csv(master_file)
 
@@ -41,7 +41,7 @@ def find_hardware_limit():
 
             # Test allocation boundaries on the Mean Ensemble
             print(f" -> Attempting MCMC root node initialization for {total_rows} rows...")
-            model = SklearnModel(n_trees=50, n_samples=10, n_burn=5, n_jobs=1)
+            model = SklearnModel(n_trees=50, n_samples=100, n_burn=50, n_jobs=1)
             model.fit(X_test, y_test) # use to test hardware limits
 
             print(f" SUCCESS: Your hardware safely supports a total of {total_rows} training rows!")
