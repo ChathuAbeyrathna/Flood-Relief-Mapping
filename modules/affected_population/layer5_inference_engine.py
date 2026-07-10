@@ -151,10 +151,19 @@ def run_layer5_inference_pipeline():
     historical_years = [2000, 2005, 2010, 2015, 2020]
     ROWS_PER_YEAR = 12000
 
-    print("Pre-extracting training vectors...")
+    print("Pre-extracting training vectors with strict footprint boundaries...")
     historical_samples = []
     for y in historical_years:
-        year_data = df_raw[(df_raw['Data_Year'] == y) & (df_raw['Affected_People'] > 0)].copy()
+        # Enforce a strict human baseline capacity threshold.
+        # This isolates pixels that actually had historical macro-displaced targets assigned
+        # BEFORE disaggregation diluted them into decimal fractions.
+        year_data = df_raw[(df_raw['Data_Year'] == y) & (df_raw['Affected_People'] >= 1.0)].copy()
+
+        # Fallback safeguard: if a historical year has highly sparse cell distributions,
+        # catch the top percentile of active targets instead of dropping the epoch.
+        if len(year_data) < 500:
+            year_data = df_raw[(df_raw['Data_Year'] == y) & (df_raw['Affected_People'] > 0.05)].copy()
+
         sampled_year_data = stratified_sample(year_data, n=min(ROWS_PER_YEAR, len(year_data)), random_state=y)
         historical_samples.append(sampled_year_data)
 
