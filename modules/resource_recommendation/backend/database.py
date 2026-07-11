@@ -1,6 +1,5 @@
 """
 Module 3 - Relief Predictions Database
-Supabase-only database operations (like Module 1)
 """
 
 import json
@@ -38,9 +37,9 @@ class ReliefDatabase:
         """Connect to Supabase (like Module 1)"""
         try:
             self.client = get_supabase_client()
-            print("✅ Module 3 connected to Supabase")
+            print("Module 3 connected to Supabase")
         except Exception as e:
-            print(f"⚠️ Cannot connect to Supabase: {e}")
+            print(f"Cannot connect to Supabase: {e}")
             self.client = None
 
     # ============================================================
@@ -53,7 +52,7 @@ class ReliefDatabase:
         Reads from: flood_detection_results
         """
         if self.client is None:
-            print(f"⚠️ No Supabase connection, using default 'Medium'")
+            print(f"No Supabase connection, using default 'Medium'")
             return 'Medium'
         
         try:
@@ -69,14 +68,14 @@ class ReliefDatabase:
             
             if response.data and len(response.data) > 0:
                 severity = response.data[0].get('priority_label', 'Medium')
-                print(f"✅ Flood severity for {division_name}: {severity}")
+                print(f"Flood severity for {division_name}: {severity}")
                 return severity
             else:
-                print(f"⚠️ No flood data for {division_name}, using default 'Medium'")
+                print(f"No flood data for {division_name}, using default 'Medium'")
                 return 'Medium'
                 
         except Exception as e:
-            print(f"⚠️ Error getting flood severity: {e}")
+            print(f"Error getting flood severity: {e}")
             return 'Medium'
 
     # ============================================================
@@ -89,7 +88,7 @@ class ReliefDatabase:
         Uses mock data if Module 2 not ready
         """
         if self.config.USE_MOCK_DATA:
-            print(f"📋 MOCK MODE: {division_name}")
+            print(f"MOCK MODE: {division_name}")
             if division_name in self.sample_data:
                 return self.sample_data[division_name]
             return {'affected_population': 10000, 'children_pct': 0.25, 'elderly_pct': 0.15, 'female_pct': 0.50}
@@ -109,7 +108,7 @@ class ReliefDatabase:
                     'female_pct': float(row['Female_%'])
                 }
         except Exception as e:
-            print(f"⚠️ Error reading Module 2: {e}")
+            print(f"Error reading Module 2: {e}")
         
         return {'affected_population': 10000, 'children_pct': 0.25, 'elderly_pct': 0.15, 'female_pct': 0.50}
 
@@ -123,7 +122,7 @@ class ReliefDatabase:
         Table: relief_predictions
         """
         if self.client is None:
-            print(f"⚠️ Cannot save: No Supabase connection")
+            print(f"Cannot save: No Supabase connection")
             return False
         
         event_date = event_date or datetime.now().strftime('%Y-%m-%d')
@@ -145,10 +144,10 @@ class ReliefDatabase:
         try:
             # Insert record
             self.client.table(self.config.RELIEF_TABLE).insert(record).execute()
-            print(f"✅ Saved prediction for {division_name} to Supabase")
+            print(f"Saved prediction for {division_name} to Supabase")
             return True
         except Exception as e:
-            print(f"❌ Failed to save: {e}")
+            print(f"Failed to save: {e}")
             return False
 
     def get_predictions(self, division_name=None, event_date=None):
@@ -172,7 +171,7 @@ class ReliefDatabase:
             return response.data
             
         except Exception as e:
-            print(f"⚠️ Failed to fetch predictions: {e}")
+            print(f"Failed to fetch predictions: {e}")
             return []
 
     def get_division_list(self):

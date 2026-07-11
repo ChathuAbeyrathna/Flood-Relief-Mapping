@@ -21,7 +21,6 @@ class CausalReliefNetwork:
             ('Female_Percentage', 'Sanitation_Need'),
             ('Affected_Population', 'Water_Need'),
             ('Affected_Population', 'Food_Need'),
-            ('Affected_Population', 'Sanitation_Need'),
             ('Affected_Population', 'Hygiene_Need'),
             ('Affected_Population', 'Evacuation_Need'),
             ('Food_Need', 'Medical_Need'),
@@ -79,6 +78,12 @@ class CausalReliefNetwork:
             labels = ['Low', 'Normal', 'High', 'Very_High']
             discretized_df['Female_Percentage'] = pd.cut(
                 discretized_df['Female %'], bins=bins, labels=labels, include_lowest=True
+            )
+        elif 'Female_Percentage' in discretized_df.columns:
+            bins = [0, 0.45, 0.50, 0.55, 1.0]
+            labels = ['Low', 'Normal', 'High', 'Very_High']
+            discretized_df['Female_Percentage'] = pd.cut(
+                discretized_df['Female_Percentage'], bins=bins, labels=labels, include_lowest=True
             )
         
         return discretized_df
@@ -183,7 +188,26 @@ class CausalReliefNetwork:
         if 'Elderly_Percentage' in self.model.nodes():
             evidence['Elderly_Percentage'] = elderly_cat
         if 'Female_Percentage' in self.model.nodes():
-            evidence['Female_Percentage'] = female_cat
+            # Check if the category exists in the model's CPD
+            try:
+                cpd = self.model.get_cpds('Female_Percentage')
+                available_states = cpd.state_names['Female_Percentage']
+                
+                if female_cat in available_states:
+                    evidence['Female_Percentage'] = female_cat
+                else:
+                    # Use the closest available state
+                    if 'Normal' in available_states:
+                        evidence['Female_Percentage'] = 'Normal'
+                    elif 'High' in available_states:
+                        evidence['Female_Percentage'] = 'High'
+                    elif 'Low' in available_states:
+                        evidence['Female_Percentage'] = 'Low'
+                    else:
+                        evidence['Female_Percentage'] = available_states[0] if available_states else female_cat
+                    print(f"   '{female_cat}' not available for Female_Percentage, using '{evidence['Female_Percentage']}'")
+            except:
+                evidence['Female_Percentage'] = female_cat
         
         query_vars = ['Water_Need', 'Food_Need', 'Sanitation_Need', 'Hygiene_Need', 'Baby_Formula_Need', 'Evacuation_Need']
         query_vars = [v for v in query_vars if v in self.model.nodes()]
@@ -494,8 +518,16 @@ if __name__ == "__main__":
     
     for test in test_cases:
         print("\n" + "=" * 60)
-        print(f"📋 SCENARIO: {test['name']}")
+        print(f"SCENARIO: {test['name']}")
         print("=" * 60)
+        
+        # Print input parameters
+        print(f"\nINPUT PARAMETERS:")
+        print(f"   Population: {test['pop']:,}")
+        print(f"   Children %: {test['children']*100:.1f}%")
+        print(f"   Elderly %: {test['elderly']*100:.1f}%")
+        print(f"   Female %: {test['female']*100:.1f}%")
+        print(f"   Severity: {test['severity']}")
         
         # Get ML predictions
         ml_result = predictor.predict_with_analysis(
@@ -515,6 +547,20 @@ if __name__ == "__main__":
             flood_severity=test['severity']
         )
         
+        # ============================================================
+        # PRINT CAUSAL NETWORK PREDICTIONS WITH CONFIDENCE
+        # ============================================================
+        print("\nCAUSAL NETWORK PREDICTIONS:")
+        print("-" * 60)
+        if causal_predictions:
+            for var, pred in causal_predictions.items():
+                # Format the variable name for display
+                display_name = var.replace('_', ' ')
+                print(f"   {display_name:20s} → {pred['most_likely']:10s} (prob: {pred['probability']:.2f}, {pred['confidence']})")
+        else:
+            print("   No predictions returned. Check if all required nodes exist in the network.")
+            print("   Available nodes in model:", causal_network.model.nodes())
+        
         # Get explanation
         explanation = causal_network.get_explainable_recommendation(
             input_data={
@@ -528,10 +574,17 @@ if __name__ == "__main__":
             ml_predictions=ml_result['predictions']
         )
         
-        print(f"\n💡 EXPLANATION:\n")
+        print(f"\nEXPLANATION:")
+        print("-" * 60)
         print(f"{explanation['summary']}\n")
-        print(f"🎯 Priority: {explanation['priority_level']}")
+        print(f"Priority: {explanation['priority_level']}")
+        
+        # Print drivers
+        if explanation.get('drivers'):
+            print(f"\nKey Drivers:")
+            for driver in explanation['drivers']:
+                print(f"   • {driver}")
     
     print("\n" + "=" * 60)
-    print("✅ TEST COMPLETE!")
+    print("TEST COMPLETE!")
     print("=" * 60)

@@ -96,7 +96,7 @@ class ReliefDataPreprocessor:
             if missing_count > 0:
                 avg_female = self.data['Female %'].mean()
                 self.data['Female %'] = self.data['Female %'].fillna(avg_female)
-                print(f"✅ Filled {missing_count} missing Female % values")
+                print(f"Filled {missing_count} missing Female % values")
         
         return self.data
 

@@ -491,19 +491,18 @@
                     </div>
                 </div>
                 
-                <h4 style="margin: 1rem 0 0.5rem 0;">📦 Relief Items Needed (First 72 Hours)</h4>
+                <h4 style="margin: 1rem 0 0.5rem 0;">Relief Items Needed (First 72 Hours)</h4>
                 <div class="relief-grid">
                     ${Object.entries(data.relief_predictions).map(([item, details]) => `
                         <div class="relief-item">
                             <div class="relief-name">${item}</div>
                             <div class="relief-quantity">${details.quantity.toLocaleString()}</div>
-                            <span class="priority-badge priority-${details.priority}" style="font-size: 0.7rem; margin-top: 0.25rem;">${details.priority}</span>
                         </div>
                     `).join('')}
                 </div>
                 
                 <div class="causal-box" style="margin-top: 1rem;">
-                    <h4 style="margin-bottom: 0.5rem;"><i class="fas fa-brain"></i> Why these items?</h4>
+                    <h4 style="margin-bottom: 0.5rem;">Why these items?</h4>
                     <p>${data.explanation}</p>
                     ${data.drivers && data.drivers.length > 0 ? `
                         <div class="reasoning-step">

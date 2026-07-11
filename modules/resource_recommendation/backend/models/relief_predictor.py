@@ -25,7 +25,7 @@ class ReliefPredictor:
 
     def set_causal_network(self, causal_network):
         self.causal_network = causal_network
-        print("✅ Causal network connected")
+        print("Causal network connected")
 
     def train_models(self, X_train, y_train, X_test=None, y_test=None):
         print("\n" + "=" * 50)
@@ -77,9 +77,9 @@ class ReliefPredictor:
 
             self.models[target] = best_model
             joblib.dump(best_model, os.path.join(self.model_dir, f"{target.replace(' ', '_')}.pkl"))
-            print(f"✔ Best model: {best_name} ({best_score:.3f})")
+            print(f"Best model: {best_name} ({best_score:.3f})")
 
-        print("\n✅ Training completed")
+        print("\nTraining completed")
 
     def predict(self, X_input):
         if isinstance(X_input, dict):
@@ -180,7 +180,7 @@ class ReliefPredictor:
                     if target not in self.target_columns:
                         self.target_columns.append(target)
                 except Exception as e:
-                    print(f"⚠️ Failed to load {filename}: {e}")
+                    print(f"Failed to load {filename}: {e}")
 
-        print(f"✅ Loaded {loaded_count} models")
+        print(f"Loaded {loaded_count} models")
         return loaded_count > 0

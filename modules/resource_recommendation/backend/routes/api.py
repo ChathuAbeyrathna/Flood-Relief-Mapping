@@ -24,7 +24,7 @@ causal_network = None
 
 def initialize_module3(data_path):
     global preprocessor, predictor, causal_network
-    print("\n🚀 INITIALIZING MODULE 3")
+    print("\nINITIALIZING MODULE 3")
     preprocessor = ReliefDataPreprocessor(data_path)
     X_train, X_test, y_train, y_test, full_data = preprocessor.run_pipeline(test_year=2025, scale=False)
     predictor = ReliefPredictor()
@@ -32,7 +32,7 @@ def initialize_module3(data_path):
     causal_network = CausalReliefNetwork()
     causal_network.build_network(full_data)
     predictor.set_causal_network(causal_network)
-    print("✅ MODULE 3 READY")
+    print("MODULE 3 READY")
     return True
 
 
@@ -49,7 +49,7 @@ def health():
 @api_bp.route('/predict/<division_name>', methods=['GET'])
 def predict_for_division(division_name):
     try:
-        print(f"\n📋 Processing: {division_name}")
+        print(f"\nProcessing: {division_name}")
         
         # STEP 1: Get flood severity from Module 1
         flood_severity = db.get_flood_severity(division_name)
@@ -80,7 +80,7 @@ def predict_for_division(division_name):
         explanation = causal_network.get_explainable_recommendation(
             input_data=ml_result['input'],
             predictions=causal_predictions,
-            ml_predictions=ml_result['predictions']
+            ml_predictions=ml_result['predictions']  # Pass with priority (internal use)
         )
         
         # STEP 5: Prepare input data for database
@@ -102,21 +102,28 @@ def predict_for_division(division_name):
         )
         
         # STEP 7: Return response
+        # This keeps priority for internal use (causal network, database)
+        cleaned_predictions = {}
+        for item, details in ml_result['predictions'].items():
+            cleaned_predictions[item] = {
+                'quantity': details['quantity']   # Only quantity, no priority
+            }
+        
         response = {
             'success': True,
             'division': division_name,
             'input_data': input_data_for_db,
-            'relief_predictions': ml_result['predictions'],
+            'relief_predictions': cleaned_predictions,
             'overall_priority': ml_result['overall_priority'],
             'explanation': explanation['summary'],
             'drivers': explanation.get('drivers', [])
         }
         
-        print(f"✅ Success for {division_name}")
+        print(f"Success for {division_name}")
         return jsonify(response)
         
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"Error: {e}")
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
