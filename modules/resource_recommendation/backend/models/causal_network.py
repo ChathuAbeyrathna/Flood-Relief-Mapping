@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
-from pgmpy.models import BayesianNetwork as DiscreteBayesianNetwork
-from pgmpy.estimators import MaximumLikelihoodEstimator, BayesianEstimator
+from pgmpy.models import DiscreteBayesianNetwork
+from pgmpy.estimators import BayesianEstimator, MaximumLikelihoodEstimator
 from pgmpy.inference import VariableElimination
 import warnings
 warnings.filterwarnings('ignore')
@@ -21,7 +21,6 @@ class CausalReliefNetwork:
             ('Female_Percentage', 'Sanitation_Need'),
             ('Affected_Population', 'Water_Need'),
             ('Affected_Population', 'Food_Need'),
-            ('Affected_Population', 'Sanitation_Need'),
             ('Affected_Population', 'Hygiene_Need'),
             ('Affected_Population', 'Evacuation_Need'),
             ('Food_Need', 'Medical_Need'),
@@ -74,20 +73,16 @@ class CausalReliefNetwork:
                 discretized_df['Elderly_%'], bins=bins, labels=labels, include_lowest=True
             )
         
-        if 'Female %' in discretized_df.columns:
+        if 'Female_%' in discretized_df.columns:
             bins = [0, 0.45, 0.50, 0.55, 1.0]
             labels = ['Low', 'Normal', 'High', 'Very_High']
             discretized_df['Female_Percentage'] = pd.cut(
-                discretized_df['Female %'], bins=bins, labels=labels, include_lowest=True
+                discretized_df['Female_%'], bins=bins, labels=labels, include_lowest=True
             )
         
         return discretized_df
     
     def build_network(self, training_data):
-        print("=" * 60)
-        print("BUILDING CAUSAL BAYESIAN NETWORK")
-        print("=" * 60)
-        
         prepared_data = training_data.copy()
         
         if 'Flood_Severity' not in prepared_data.columns and 'Severity' in prepared_data.columns:
@@ -107,30 +102,27 @@ class CausalReliefNetwork:
         
         available_edges = [(u, v) for u, v in self.causal_edges if u in available_nodes and v in available_nodes]
         
-        print(f"\nNetwork nodes: {available_nodes}")
-        print(f"Training samples: {len(network_data)}")
-        
         self.model = DiscreteBayesianNetwork(available_edges)
         
+        # Try Bayesian Estimator (with prior)
         try:
-            self.model.fit(network_data, estimator=BayesianEstimator, prior_type='BDeu', equivalent_sample_size=10)
-            print("\nModel trained using Bayesian Estimator")
-        except Exception as e:
-            print(f"\nBayesian Estimator failed: {e}")
-            self.model.fit(network_data, estimator=MaximumLikelihoodEstimator)
-            print("Model trained using Maximum Likelihood Estimator")
+            estimator = BayesianEstimator(self.model, network_data)
+            cpds = estimator.get_parameters(prior_type='BDeu', equivalent_sample_size=10)
+            for cpd in cpds:
+                self.model.add_cpds(cpd)
+        except Exception:
+            # Fallback to Maximum Likelihood Estimator
+            estimator = MaximumLikelihoodEstimator(self.model, network_data)
+            cpds = estimator.get_parameters()
+            for cpd in cpds:
+                self.model.add_cpds(cpd)
         
         self.inference = VariableElimination(self.model)
-        
-        print(f"\nNetwork Statistics:")
-        print(f"  - Nodes: {self.model.number_of_nodes()}")
-        print(f"  - Edges: {self.model.number_of_edges()}")
         
         return self.model
     
     def predict_relief_needs(self, affected_population, children_pct, elderly_pct, female_pct, flood_severity='Medium'):
         if self.model is None:
-            print("Network not built yet")
             return None
         
         # Categorize population
@@ -463,75 +455,3 @@ class CausalReliefNetwork:
             'needs': needs_text,
             'priority_text': priority_text
         }
-
-
-if __name__ == "__main__":
-    from data_preprocessing import ReliefDataPreprocessor
-    from relief_predictor import ReliefPredictor
-    
-    print("=" * 60)
-    print("TESTING TRULY NATURAL EXPLANATION")
-    print("=" * 60)
-    
-    # Load data
-    preprocessor = ReliefDataPreprocessor("../../data/Gampaha_DS_Flood_Emergency_Relief_2019_2025.xlsx")
-    X_train, X_test, y_train, y_test, full_data = preprocessor.run_pipeline(test_year=2025, scale=False)
-    
-    # Train predictor
-    predictor = ReliefPredictor()
-    predictor.train_models(X_train, y_train, X_test, y_test)
-    
-    # Test different scenarios
-    test_cases = [
-        {"name": "Large population, High severity", "pop": 42105, "children": 0.28, "elderly": 0.13, "female": 0.52, "severity": "High"},
-        {"name": "Small population, Low severity", "pop": 2500, "children": 0.15, "elderly": 0.08, "female": 0.48, "severity": "Low"},
-        {"name": "High elderly population", "pop": 15000, "children": 0.12, "elderly": 0.25, "female": 0.45, "severity": "Medium"},
-        {"name": "Very high female percentage", "pop": 8000, "children": 0.20, "elderly": 0.10, "female": 0.65, "severity": "Medium"},
-    ]
-    
-    causal_network = CausalReliefNetwork()
-    causal_network.build_network(full_data)
-    
-    for test in test_cases:
-        print("\n" + "=" * 60)
-        print(f"📋 SCENARIO: {test['name']}")
-        print("=" * 60)
-        
-        # Get ML predictions
-        ml_result = predictor.predict_with_analysis(
-            affected_population=test['pop'],
-            children_pct=test['children'],
-            elderly_pct=test['elderly'],
-            female_pct=test['female'],
-            flood_severity=test['severity']
-        )
-        
-        # Get causal predictions
-        causal_predictions = causal_network.predict_relief_needs(
-            affected_population=test['pop'],
-            children_pct=test['children'],
-            elderly_pct=test['elderly'],
-            female_pct=test['female'],
-            flood_severity=test['severity']
-        )
-        
-        # Get explanation
-        explanation = causal_network.get_explainable_recommendation(
-            input_data={
-                'affected_population': test['pop'],
-                'children_pct': test['children'],
-                'elderly_pct': test['elderly'],
-                'female_pct': test['female'],
-                'flood_severity': test['severity']
-            },
-            predictions=causal_predictions,
-            ml_predictions=ml_result['predictions']
-        )
-        
-        print(f"\n💡 EXPLANATION:\n")
-        print(f"{explanation['summary']}\n")
-        print(f"🎯 Priority: {explanation['priority_level']}")
-    
-    print("\n" + "=" * 60)
-    print("✅ TEST COMPLETE!")
-    print("=" * 60)

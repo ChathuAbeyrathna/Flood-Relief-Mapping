@@ -15,7 +15,7 @@ class ReliefPredictor:
     def __init__(self, model_dir='models_saved/'):
         self.model_dir = model_dir
         self.models = {}
-        self.feature_columns = ['Affected_Population', 'Children_%', 'Elderly_%', 'Female %', 'Severity_Code']
+        self.feature_columns = ['Affected_Population', 'Children_%', 'Elderly_%', 'Female_%', 'Severity_Code']
         self.target_columns = None
         self.causal_network = None
         self.severity_map = {'Low': 1, 'Medium': 2, 'High': 3}
@@ -25,25 +25,14 @@ class ReliefPredictor:
 
     def set_causal_network(self, causal_network):
         self.causal_network = causal_network
-        print("✅ Causal network connected")
 
     def train_models(self, X_train, y_train, X_test=None, y_test=None):
-        print("\n" + "=" * 50)
-        print("MODEL TRAINING")
-        print("=" * 50)
-
         X_train = X_train[self.feature_columns]
         self.target_columns = y_train.columns.tolist()
-
-        print(f"Features: {self.feature_columns}")
-        print(f"Targets: {self.target_columns}")
-        print(f"Training samples: {len(X_train)}")
 
         tscv = TimeSeriesSplit(n_splits=5)
 
         for target in self.target_columns:
-            print(f"\nTraining → {target}")
-
             models = {
                 "Ridge": Ridge(alpha=1.0),
                 "RandomForest": RandomForestRegressor(n_estimators=120, max_depth=10, random_state=42, n_jobs=-1),
@@ -63,23 +52,17 @@ class ReliefPredictor:
                     if X_test is not None:
                         preds = model.predict(X_test[X_train.columns])
                         test_r2 = r2_score(y_test[target], preds)
-                        print(f"  {name}: CV={score:.3f}, Test={test_r2:.3f}")
                         score = test_r2
-                    else:
-                        print(f"  {name}: CV={score:.3f}")
 
                     if score > best_score:
                         best_score = score
                         best_model = model
                         best_name = name
                 except Exception as e:
-                    print(f"  {name} failed: {str(e)[:50]}")
+                    continue
 
             self.models[target] = best_model
             joblib.dump(best_model, os.path.join(self.model_dir, f"{target.replace(' ', '_')}.pkl"))
-            print(f"✔ Best model: {best_name} ({best_score:.3f})")
-
-        print("\n✅ Training completed")
 
     def predict(self, X_input):
         if isinstance(X_input, dict):
@@ -100,7 +83,7 @@ class ReliefPredictor:
             "Affected_Population": int(affected_population),
             "Children_%": float(children_pct),
             "Elderly_%": float(elderly_pct),
-            "Female %": float(female_pct),
+            "Female_%": float(female_pct),
             "Severity_Code": int(severity_code)
         }])
 
@@ -180,7 +163,6 @@ class ReliefPredictor:
                     if target not in self.target_columns:
                         self.target_columns.append(target)
                 except Exception as e:
-                    print(f"⚠️ Failed to load {filename}: {e}")
+                    continue
 
-        print(f"✅ Loaded {loaded_count} models")
         return loaded_count > 0
