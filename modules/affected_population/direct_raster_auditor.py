@@ -17,7 +17,7 @@ def run_direct_raster_audit():
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
     flood_tiff_path = os.path.join(base_dir, "interface", "backend", "outputs", "flood_extent_4326.tif")
-    layer5_file = os.path.join(base_dir, "data", "processed", "master", "layer5_2025_spatial_predictions.csv")
+    layer5_file = os.path.join(base_dir, "data", "processed", "master", "layer5N_2025_spatial_predictions.csv")
 
     print("=" * 85)
     print("🎯 RAW MODULE 1 RASTER VS LAYER 5 SPATIAL INTERSECT AUDITOR (CORRECTED)")

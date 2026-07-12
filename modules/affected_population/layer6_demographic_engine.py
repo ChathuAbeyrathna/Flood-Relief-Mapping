@@ -6,10 +6,10 @@ import json
 def run_layer6_demographic_pipeline():
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
-    predictions_file = os.path.join(base_dir, "data", "processed", "master", "layer5_2025_spatial_predictions.csv")
+    predictions_file = os.path.join(base_dir, "data", "processed", "master", "layer5N_2025_spatial_predictions.csv")
     census_file = os.path.join(base_dir, "data", "raw", "population", "2025", "1-Census_GN_population.xlsx")
     output_dir = os.path.join(base_dir, "data", "processed", "master")
-    json_out_path = os.path.join(output_dir, "layer6_final_allocation_input.json")
+    json_out_path = os.path.join(output_dir, "layer6N_final_allocation_input.json")
 
     print("=" * 85)
     print("LAYER 6 — MULTI-TAB GEOSPATIAL EXTRACTION & BASELINE AUDITOR")
@@ -22,10 +22,12 @@ def run_layer6_demographic_pipeline():
     df_pred['Ds_Division_Name'] = df_pred['Ds_Division_Name'].astype(str).str.replace(r'[^a-zA-Z0-9 ]', '', regex=True).str.strip().str.title()
     df_pred['Ds_Division_Name'] = df_pred['Ds_Division_Name'].str.replace('Jaela', 'Ja Ela', regex=False).str.replace('Ja-Ela', 'Ja Ela', regex=False)
 
-    ds_predictions = df_pred.groupby('Ds_Division_Name').agg(
+    # First sum up coordinates per division FOR EACH DISTINCT SIMULATED DISASTER WINDOW
+    # Then extract the absolute maximum single peak impact footprint per division
+    ds_predictions = df_pred.groupby(['Ds_Division_Name', 'Data_Year']).agg(
         Predicted_Mean_Affected=('Predicted_Mean_Affected', 'sum'),
         Upper_Risk_Limit=('Predicted_Upper_Bound', 'sum')
-    ).reset_index()
+    ).groupby('Ds_Division_Name').max().reset_index()
 
     # ------------------------------------------------------------------
     # STEP 2: MULTI-TAB EXCEL DIGEST ENGINE (Searches all workbook sheets)

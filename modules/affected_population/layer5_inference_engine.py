@@ -5,12 +5,16 @@ import gc
 from bartpy.sklearnmodel import SklearnModel
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.impute import SimpleImputer
-
 # ==============================================================================
-# TECHNICAL NOVELTY ENGINE: HeteroscedasticBART (Layer 5 Self-Correcting Production Engine)
+# TECHNICAL NOVELTY ENGINE: HeteroscedasticBART (Layer 5 Production Engine)
+# NOTE: Hyperparameters mirror HeteroscedasticBART in layer4_predictive_engine.py
+# exactly (n_trees_mean, n_samples, n_burn, n_chains, n_trees_var, max_depth_var,
+# calib_frac, calib_target_coverage) so the production model matches the
+# architecture that was cross-validated in Layer 4.
 # ==============================================================================
 class HeteroscedasticBARTInference:
-    def __init__(self, n_trees_mean=50, n_samples=200, n_burn=200, n_chains=4, n_trees_var=200, max_depth_var=4, calib_frac=0.10, calib_target_coverage=0.95):
+    def __init__(self, n_trees_mean=50, n_samples=100, n_burn=50, n_chains=4,
+                 n_trees_var=200, max_depth_var=4, calib_frac=0.10, calib_target_coverage=0.90):
         self.n_trees_mean = n_trees_mean
         self.n_samples = n_samples
         self.n_burn = n_burn
@@ -52,7 +56,7 @@ class HeteroscedasticBARTInference:
         del mu_fit
         gc.collect()
 
-        print("   -> Stage 2: Training Production g_sigma (GBT) on log(residual²)...")
+        print("   -> Stage 2: Training Production g_sigma (GBT) on log(residual^2)...")
         self.var_ensemble = GradientBoostingRegressor(
             n_estimators=self.n_trees_var, max_depth=self.max_depth_var, learning_rate=0.05, subsample=0.8, random_state=42
         )
@@ -83,60 +87,23 @@ class HeteroscedasticBARTInference:
 
 
 # ==============================================================================
-# STRATIFIED SAMPLING HELPER
-# ==============================================================================
-def stratified_sample(df, n, random_state):
-    try:
-        df = df.copy()
-        df['_sev_bin'] = pd.qcut(df['Severity_Weight'], q=4, labels=False, duplicates='drop')
-        df['_stratum'] = df['Ghs_Settlement_Type'].astype(str) + '_' + df['_sev_bin'].astype(str)
-
-        counts = df['_stratum'].value_counts(normalize=True)
-        per_stratum = (counts * n).round().astype(int)
-        diff = n - per_stratum.sum()
-        if diff != 0:
-            per_stratum[per_stratum.idxmax()] += diff
-
-        parts = []
-        for stratum, count in per_stratum.items():
-            pool = df[df['_stratum'] == stratum]
-            take = min(count, len(pool))
-            if take > 0:
-                parts.append(pool.sample(n=take, random_state=random_state))
-
-        result = pd.concat(parts).drop(columns=['_sev_bin', '_stratum'])
-        return result.sample(frac=1, random_state=random_state).reset_index(drop=True)
-    except Exception:
-        return df.sample(n=min(n, len(df)), random_state=random_state).reset_index(drop=True)
-
-
-# ==============================================================================
-# MAIN PRODUCTION INFERENCE PIPELINE (WITH CHUNK APPENDING & INLINE CORRECTION)
+# MAIN PRODUCTION INFERENCE PIPELINE (WITH CHUNK APPENDING)
 # ==============================================================================
 def run_layer5_inference_pipeline():
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    master_file = os.path.join(base_dir, "data", "processed", "master", "Final_Training_Dataset_Gampaha.csv")
+    master_file = os.path.join(base_dir, "data", "processed", "master", "FinalN_Training_Dataset_Gampaha.csv")
     output_dir = os.path.join(base_dir, "data", "processed", "master")
-    out_path = os.path.join(output_dir, "layer5_2025_spatial_predictions.csv")
+    out_path = os.path.join(output_dir, "layer5N_2025_spatial_predictions.csv")
 
     if os.path.exists(out_path):
         os.remove(out_path)
 
     print("=" * 85)
-    print("LAYER 5 — INFERENCE ENGINE: SELF-CORRECTING DATA STREAM ENGINE")
+    print("LAYER 5 - INFERENCE ENGINE: PRODUCTION DATA STREAM ENGINE")
     print("=" * 85)
 
     print("Reading Consolidated Master Matrix...")
     df_raw = pd.read_csv(master_file)
-
-    # ------------------------------------------------------------------
-    # INLINE CORRECTOR: UPGRADED BOUNDED DISAGGREGATION (OPTION A)
-    # ------------------------------------------------------------------
-    print("Executing Option A Bounded Footprint Disaggregation...")
-    from disaggregation_utility import apply_bounded_disaggregation
-    df_raw = apply_bounded_disaggregation(df_raw)
-    print(" -> Success: Macro targets locked strictly to historical wet footprints.")
-    # ------------------------------------------------------------------
 
     features = [
         'Ghs_Pop_Baseline', 'Ghs_Built_S_Total', 'Ghs_Built_S_NonRes', 'Ghs_Built_V_Total',
@@ -149,35 +116,44 @@ def run_layer5_inference_pipeline():
     df_raw[features] = imputer.fit_transform(df_raw[features])
 
     historical_years = [2000, 2005, 2010, 2015, 2020]
-    ROWS_PER_YEAR = 12000
+    ROWS_PER_YEAR = 10000  # Matches ROWS_PER_YEAR used in layer3_stratified_diagnostics.py and layer4_predictive_engine.py
+
+    # ALIGNED WITH LAYER 4: Layer 4's CV benchmark built its per-year samples using
+    # simple random sampling: year_data.sample(n=take, random_state=year_seeds[y]),
+    # with year_seeds = {2000:0, 2005:5, 2010:10, 2015:15, 2020:20}. The validated
+    # MAE/RMSE/R2/Spearman/coverage/width numbers only describe this architecture
+    # when trained on data built that way. Layer 5 previously sampled with a
+    # different technique (severity/settlement-type stratified sampling), which
+    # meant the layer4 metrics no longer applied to what layer5 actually trains
+    # and deploys. Layer 5 now uses the identical sampling technique, filter, and
+    # seeds as layer4 to keep the production model within the scope of what was
+    # validated.
+    year_seeds = {2000: 0, 2005: 5, 2010: 10, 2015: 15, 2020: 20}
 
     print("Pre-extracting training vectors with strict footprint boundaries...")
     historical_samples = []
     for y in historical_years:
-        # Enforce a strict human baseline capacity threshold.
-        # This isolates pixels that actually had historical macro-displaced targets assigned
-        # BEFORE disaggregation diluted them into decimal fractions.
-        year_data = df_raw[(df_raw['Data_Year'] == y) & (df_raw['Affected_People'] >= 1.0)].copy()
+        # Same inclusion rule as layer4: Affected_People > 0
+        year_data = df_raw[(df_raw['Data_Year'] == y) & (df_raw['Affected_People'] > 0)].copy()
 
-        # Fallback safeguard: if a historical year has highly sparse cell distributions,
-        # catch the top percentile of active targets instead of dropping the epoch.
-        if len(year_data) < 500:
-            year_data = df_raw[(df_raw['Data_Year'] == y) & (df_raw['Affected_People'] > 0.05)].copy()
-
-        sampled_year_data = stratified_sample(year_data, n=min(ROWS_PER_YEAR, len(year_data)), random_state=y)
+        take = min(ROWS_PER_YEAR, len(year_data))
+        sampled_year_data = year_data.sample(n=take, random_state=year_seeds[y])
         historical_samples.append(sampled_year_data)
 
     df_train_pool = pd.concat(historical_samples, ignore_index=True)
 
+    is_simulated_2025 = False
     df_2025_target = df_raw[df_raw['Data_Year'] == 2025].copy()
     if len(df_2025_target) == 0:
-        print("\n[Simulation Mode] Pulling 2020 matrix as 2025 proxy...")
+        is_simulated_2025 = True
+        print("\n[Simulation Mode] No 2025 rows found in master file - pulling 2020 matrix as a synthetic 2025 proxy.")
         df_2025_target = df_raw[df_raw['Data_Year'] == 2020].copy()
         df_2025_target['Data_Year'] = 2025
         df_2025_target['Precip_Mm'] *= 1.10
 
     print(f"\n -> Unified Training Matrix Size  : {len(df_train_pool)} rows")
-    print(f" -> Target 2025 Inference Footprint: {len(df_2025_target)} pixels")
+    print(f" -> Target 2025 Inference Footprint: {len(df_2025_target)} pixels"
+          f"{' (SIMULATED from 2020)' if is_simulated_2025 else ''}")
 
     X_train = df_train_pool[features].values
     y_train = np.log1p(df_train_pool['Affected_People'].values)
@@ -185,8 +161,9 @@ def run_layer5_inference_pipeline():
     del df_raw, df_train_pool, historical_samples
     gc.collect()
 
-    # Train Model
-    model = HeteroscedasticBARTInference(n_trees_mean=50, n_samples=200, n_burn=200, n_chains=4, n_trees_var=200, max_depth_var=4)
+    # Train Model - hyperparameters identical to HeteroscedasticBART in layer4_predictive_engine.py
+    model = HeteroscedasticBARTInference(n_trees_mean=50, n_samples=100, n_burn=50, n_chains=4,
+                                         n_trees_var=200, max_depth_var=4)
     model.fit_production_model(X_train, y_train)
 
     # ------------------------------------------------------------------
@@ -233,7 +210,10 @@ def run_layer5_inference_pipeline():
         gc.collect()
 
     print("\n" + "=" * 85)
-    print(f"[Success] Balanced Layer 5 spatial predictions saved → {out_path}")
+    print(f"[Success] Layer 5 spatial predictions saved -> {out_path}")
+    if is_simulated_2025:
+        print("[WARNING] These predictions are derived from a SIMULATED 2025 proxy (2020 data, Precip_Mm x1.10),")
+        print("          not genuine 2025 input data. Treat as a placeholder run only.")
     print("=" * 85)
 
     # ==============================================================================
@@ -242,7 +222,14 @@ def run_layer5_inference_pipeline():
     print("\nExecuting Macro-Level Validation Audit on Generated 2025 Deliverables...")
     df_audit = pd.read_csv(out_path)
 
-    total_baseline_pop = df_audit['Ghs_Pop_Baseline'].sum()
+    # Deduplicate spatially so each physical pixel's baseline population is only
+    # counted ONCE. This deduped frame is now used consistently for every
+    # population total below (previously the headline total used the
+    # non-deduplicated frame while the per-division table used the deduped one,
+    # which made the two numbers inconsistent with each other).
+    df_spatial_unique = df_audit.drop_duplicates(subset=['Longitude', 'Latitude'])
+    total_baseline_pop = df_spatial_unique['Ghs_Pop_Baseline'].sum()
+
     total_predicted_mean = df_audit['Predicted_Mean_Affected'].sum()
     total_upper_bound = df_audit['Predicted_Upper_Bound'].sum()
 
@@ -255,11 +242,21 @@ def run_layer5_inference_pipeline():
 
     # DS-Division Level Aggregate Audit
     print("\nSummary Check by DS Division Name:")
-    ds_summary = df_audit.groupby('Ds_Division_Name').agg(
-        Total_Baseline=('Ghs_Pop_Baseline', 'sum'),
+
+    # Unique baseline population per DS Division (spatially deduplicated)
+    ds_baseline = df_spatial_unique.groupby('Ds_Division_Name')['Ghs_Pop_Baseline'].sum()
+
+    # Predicted totals per DS Division
+    ds_predictions = df_audit.groupby('Ds_Division_Name').agg(
         Mean_Projected_Affected=('Predicted_Mean_Affected', 'sum'),
         Upper_Risk_Limit=('Predicted_Upper_Bound', 'sum')
-    ).round(2)
+    )
+
+    # Combine back cleanly
+    ds_summary = ds_predictions.copy()
+    ds_summary.insert(0, 'Total_Baseline', ds_baseline)
+    ds_summary = ds_summary.round(2)
+
     print(ds_summary.to_string())
     # ==============================================================================
 

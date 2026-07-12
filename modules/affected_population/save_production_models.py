@@ -5,14 +5,14 @@ import numpy as np
 import gc
 from sklearn.impute import SimpleImputer
 # Import your model definition components directly from your Layer 5 file
-from layer5_inference_engine import HeteroscedasticBARTInference, stratified_sample
+from layer5_inference_engine import HeteroscedasticBARTInference
 
 def execute_and_serialize_production_models():
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    master_file = os.path.join(base_dir, "data", "processed", "master", "Final_Training_Dataset_Gampaha.csv")
+    master_file = os.path.join(base_dir, "data", "processed", "master", "FinalN_Training_Dataset_Gampaha.csv")
 
     # Target Production Export Location
-    model_dir = os.path.join(base_dir, "models", "production")
+    model_dir = os.path.join(base_dir, "models", "productionN")
 
     # CRITICAL FIX: Automatically force the OS to generate the directory path structural boundaries
     print(f"Verifying system model directories at: {model_dir}")
@@ -21,37 +21,28 @@ def execute_and_serialize_production_models():
     print("Reading Consolidated Master Matrix for production lock...")
     df_raw = pd.read_csv(master_file)
 
-    # Apply Option A Bounded Disaggregation to production pipeline target pools
-    print("Structuring production matrices using Option A metrics...")
-    from disaggregation_utility import apply_bounded_disaggregation
-    df_raw = apply_bounded_disaggregation(df_raw)
-
     features = [
         'Ghs_Pop_Baseline', 'Ghs_Built_S_Total', 'Ghs_Built_S_NonRes', 'Ghs_Built_V_Total',
         'Ghs_Settlement_Type', 'Nightlight_Intensity', 'Precip_Mm', 'Is_Holiday', 'Is_Weekend',
         'Severity_Weight', 'Occupancy_Adj', 'Built_Up_Ratio', 'Weighted_Pop_Engineered', 'Ambient_Pop_Landscan'
     ]
 
+    print("Executing Global Anchor Imputation over consolidated data bounds...")
     imputer = SimpleImputer(strategy='median')
     df_raw[features] = imputer.fit_transform(df_raw[features])
 
     historical_years = [2000, 2005, 2010, 2015, 2020]
-    ROWS_PER_YEAR = 12000
+    ROWS_PER_YEAR = 10000
+    year_seeds = {2000: 0, 2005: 5, 2010: 10, 2015: 15, 2020: 20}
 
-    print("Pre-extracting training vectors with strict footprint boundaries...")
+    print("Pre-extracting training vectors using validated historical random seed anchors...")
     historical_samples = []
     for y in historical_years:
-        # Enforce a strict human baseline capacity threshold.
-        # This isolates pixels that actually had historical macro-displaced targets assigned
-        # BEFORE disaggregation diluted them into decimal fractions.
-        year_data = df_raw[(df_raw['Data_Year'] == y) & (df_raw['Affected_People'] >= 1.0)].copy()
+        # Identical inclusion filter used in validation layers
+        year_data = df_raw[(df_raw['Data_Year'] == y) & (df_raw['Affected_People'] > 0)].copy()
 
-        # Fallback safeguard: if a historical year has highly sparse cell distributions,
-        # catch the top percentile of active targets instead of dropping the epoch.
-        if len(year_data) < 500:
-            year_data = df_raw[(df_raw['Data_Year'] == y) & (df_raw['Affected_People'] > 0.05)].copy()
-
-        sampled_year_data = stratified_sample(year_data, n=min(ROWS_PER_YEAR, len(year_data)), random_state=y)
+        take = min(ROWS_PER_YEAR, len(year_data))
+        sampled_year_data = year_data.sample(n=take, random_state=year_seeds[y])
         historical_samples.append(sampled_year_data)
 
     df_train_pool = pd.concat(historical_samples, ignore_index=True)
@@ -61,8 +52,16 @@ def execute_and_serialize_production_models():
     del df_raw, df_train_pool, historical_samples
     gc.collect()
 
-    print("Fitting production ensemble layers...")
-    model = HeteroscedasticBARTInference(n_trees_mean=50, n_samples=200, n_burn=200, n_chains=4, n_trees_var=200, max_depth_var=4)
+    print(f"Fitting production ensemble layers on finalized {len(X_train)} rows...")
+    model = HeteroscedasticBARTInference(
+        n_trees_mean=50,
+        n_samples=100,
+        n_burn=50,
+        n_chains=4,
+        n_trees_var=200,
+        max_depth_var=4,
+        calib_target_coverage=0.90
+    )
     model.fit_production_model(X_train, y_train)
 
     # ------------------------------------------------------------------
