@@ -448,14 +448,14 @@
             div.style.minWidth = '130px';
 
             div.innerHTML = `
-        <div style="font-weight: 600; color: #0f3b2c; margin-bottom: 3px; font-size: 12px; border-bottom: 1px solid #eee; padding-bottom: 3px;">
-            Severity
-        </div>
-        <div><span style="display:inline-block; width:10px; height:10px; background:#dc2626; border-radius:2px; margin-right:6px;"></span> High (Flooded)</div>
-        <div><span style="display:inline-block; width:10px; height:10px; background:#f97316; border-radius:2px; margin-right:6px;"></span> Medium</div>
-        <div><span style="display:inline-block; width:10px; height:10px; background:#fef08a; border-radius:2px; margin-right:6px;"></span> Low</div>
-        <div><span style="display:inline-block; width:10px; height:10px; background:#e0e0e0; border-radius:2px; margin-right:6px;"></span> No Flood</div>
-    `;
+                <div style="font-weight: 600; color: #0f3b2c; margin-bottom: 3px; font-size: 12px; border-bottom: 1px solid #eee; padding-bottom: 3px;">
+                    Severity
+                </div>
+                <div><span style="display:inline-block; width:10px; height:10px; background:#dc2626; border-radius:2px; margin-right:6px;"></span> High (Flooded)</div>
+                <div><span style="display:inline-block; width:10px; height:10px; background:#f97316; border-radius:2px; margin-right:6px;"></span> Medium</div>
+                <div><span style="display:inline-block; width:10px; height:10px; background:#fef08a; border-radius:2px; margin-right:6px;"></span> Low</div>
+                <div><span style="display:inline-block; width:10px; height:10px; background:#e0e0e0; border-radius:2px; margin-right:6px;"></span> No Flood</div>
+            `;
             return div;
         };
 
@@ -594,7 +594,7 @@
                 displayFloodStats(geojsonData);
 
                 document.getElementById('floodUpdateTime').innerHTML =
-                    `<i class="fas fa-clock"></i> Flood event updated: ${new Date().toLocaleString()}`;
+                    `<i class="fas fa-clock"></i> Flood Event Updated: ${new Date().toLocaleString()}`;
 
                 console.log('Flood data loaded successfully');
 
@@ -696,12 +696,12 @@
 
             if (floodedDivisions === 0) {
                 statsContent.innerHTML = `
-            <div class="success-message">
-                <i class="fas fa-check-circle"></i>
-                <strong>No Flooding Detected</strong>
-                <p>All ${features.length} divisions are clear</p>
-            </div>
-        `;
+                    <div class="success-message">
+                        <i class="fas fa-check-circle"></i>
+                        <strong>No Flooding Detected</strong>
+                        <p>All ${features.length} divisions are clear</p>
+                    </div>
+                `;
                 return;
             }
 
@@ -956,26 +956,23 @@
                 const hasItems = items.some(item => data.relief_predictions[item]);
                 if (!hasItems) return '';
 
-                let html = `<div style="font-weight: 500; color: #0f3b2c; margin-top: 0.5rem; margin-bottom: 0.2rem; font-size: 0.85rem;">${title}</div>`;
-                html += `<div style="display: flex; flex-direction: column; gap: 2px; margin-left: 0.5rem;">`;
+                let html = `<div style="display: flex; flex-direction: column; align-items: center; width: 100%;">`;
+                html += `<div style="width: 100%; max-width: 320px; font-weight: 500; color: #0f3b2c; margin-top: 0.5rem; margin-bottom: 0.2rem; font-size: 0.85rem; text-align: left;">${title}</div>`;
                 items.forEach(item => {
                     if (data.relief_predictions[item]) {
                         const details = data.relief_predictions[item];
                         let displayName = item;
-                        if (item === 'Cooked Food Packs') {
-                            displayName = 'Cooked Food Packets';
-                        }
-                        if (item === 'Tea Powder Packets') {
-                            displayName = 'Tea Powder Packs';
-                        }
-                        if (item === 'Sanitary') {
-                            displayName = 'Sanitary Pad Packets';
-                        }
+                        if (item === 'Cooked Food Packs') displayName = 'Cooked Food Packets';
+                        if (item === 'Noodles Packs') displayName = 'Noodle Packs';
+                        if (item === 'Biscuits Packs') displayName = 'Biscuit Packs';
+                        if (item === 'Tea Powder Packets') displayName = 'Tea Powder Packs';
+                        if (item === 'Sanitary') displayName = 'Sanitary Pad Packets';
+
                         html += `
-                            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; padding: 2px 0;">
-                                <span style="color: #333;">${displayName}</span>
-                                <span style="font-weight: 500; color: #0f3b2c;">${details.quantity.toLocaleString()}</span>
-                            </div>
+                        <div style="display: flex; justify-content: space-between; width: 100%; max-width: 320px; font-size: 0.8rem; padding: 2px 0;">
+                            <span style="color: #333;">${displayName}</span>
+                            <span style="font-weight: 500; color: #0f3b2c;">${details.quantity.toLocaleString()}</span>
+                        </div>
                         `;
                     }
                 });
@@ -991,33 +988,28 @@
             reliefContent.innerHTML = `
                 <div style="margin-bottom: 1rem;">
                     <div class="stats-grid">
-                        <!-- Division Box -->
                         <div class="stat-card highlight" style="border-color: #78350f; background: rgba(253, 230, 138, 0.25)">
                             <div class="stat-value" style="color: #6b4226">${data.division}</div>
                             <div class="stat-label">Selected Division</div>
                         </div>
-                        
-                        <!-- Priority Level Row -->
                         <div class="stat-card highlight" style="border-color: #78350f; background: rgba(253, 230, 138, 0.25)">
                             <div class="stat-value" style="color: #6b4226">${data.overall_priority}</div>
-                            <div class="stat-label">Priority Level:</div>
+                            <div class="stat-label">Priority Level</div>
                         </div>
                     </div>
 
                     <h4 style="margin: 1rem 0 0.5rem 0; font-size: 0.95rem; color: #0f3b2c;">Emergency Relief Items (First 72 Hours)</h4>
                     
                     <!-- Centered list container -->
-                    <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
-                        <div style="width: 100%; max-width: 350px; padding: 0.5rem 1rem; background: #f8f9fa; border-radius: 8px;">
-                            ${itemsHtml}
-                        </div>
+                    <div style="width: 100%; padding: 0.5rem 1rem; background: #f8f9fa; border-radius: 8px;">
+                        ${itemsHtml}
                     </div>
                 </div>
                 
-                <!-- Explanation Box - Small, No Border, Light Yellow -->
+                <!-- Explanation Box -->
                 <div style="margin-top: 0.8rem; padding: 0.5rem 0.8rem; background: rgba(253, 230, 138, 0.25); border-radius: 6px; font-size: 0.8rem;">
                     <div style="font-weight: 500; color: #78350f; margin-bottom: 0.3rem; font-size: 0.85rem;">
-                        </i> Why these items?
+                        Why these items?
                     </div>
                     <p style="margin: 0.2rem 0; color: #333;">${data.explanation}</p>
                     ${data.drivers && data.drivers.length > 0 ? `
