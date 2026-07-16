@@ -2,17 +2,23 @@
 __pycache__/
 *.pyc
 *.pyo
-.env
 venv/
 env/
+
+# Environment
+.env
 
 # Models
 models_saved/
 *.pkl
 
-# Data
-data/*.xlsx
+# Data files
+/data/
+**/data/
 *.xlsx
+*.csv
+*.shp
+*.tif
 
 # Outputs
 outputs/
@@ -25,12 +31,3 @@ uploads/
 
 # Logs
 *.log
-.idea/
-__pycache__/
-*.xlsx
-*.csv
-*.shp
-*.tif
-data/
-.env
-uploads/

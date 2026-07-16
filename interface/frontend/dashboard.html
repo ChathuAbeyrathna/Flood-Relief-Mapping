@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -79,29 +80,6 @@
         .btn-upload:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-        }
-
-        .refresh-btn {
-            background: #1a6b4a;
-            color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 10px;
-            border: none;
-            font-weight: 600;
-            font-size: 0.9rem;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            width: 100%;
-            justify-content: center;
-            margin-top: 0.5rem;
-        }
-
-        .refresh-btn:hover {
-            background: #0f3b2c;
-            transform: translateY(-2px);
         }
 
         /* Main container */
@@ -198,10 +176,25 @@
             font-weight: bold;
         }
 
-        .priority-Critical { background: #dc2626; color: white; }
-        .priority-High { background: #f97316; color: white; }
-        .priority-Medium { background: #eab308; color: white; }
-        .priority-Low { background: #22c55e; color: white; }
+        .priority-Critical {
+            background: #dc2626;
+            color: white;
+        }
+
+        .priority-High {
+            background: #f97316;
+            color: white;
+        }
+
+        .priority-Medium {
+            background: #eab308;
+            color: white;
+        }
+
+        .priority-Low {
+            background: #22c55e;
+            color: white;
+        }
 
         .relief-grid {
             display: grid;
@@ -270,8 +263,13 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         .error-message {
@@ -333,9 +331,11 @@
             .dashboard-container {
                 flex-direction: column;
             }
+
             .map-panel {
                 height: 50vh;
             }
+
             .info-panel {
                 height: 50vh;
             }
@@ -366,9 +366,29 @@
         </div>
 
         <div class="info-panel" id="infoPanel">
+            <div class="panel-section" style="padding: 0.5rem 1.2rem;">
+                <div id="floodUpdateTime"
+                    style="font-size: 0.75rem; color: #0f3b2c; text-align: center; margin: 0.3rem;">
+                    <i class="fas fa-clock"></i> Flood Event Updated: <span id="eventTimestamp">Loading...</span>
+                </div>
+            </div>
+            <!-- Relief Recommendations -->
+            <div class="panel-section" id="reliefPanel">
+                <h3><i class="fas fa-hands-helping"></i> Relief Recommendations</h3>
+                <div id="reliefContent">
+                    <div class="empty-state" style="padding: 1.5rem 1rem;">
+                        <i class="fas fa-map-marker-alt"
+                            style="font-size: 2rem; color: #1a6b4a; margin-bottom: 0.5rem; display: block;"></i>
+                        <p style="font-size: 0.85rem; margin: 0.2rem 0; color: #666;"><strong>Click on any flooded
+                                area</strong></p>
+                        <p style="font-size: 0.75rem; margin: 0.2rem 0; color: #888;">Select a division on the map to
+                            see relief recommendations</p>
+                    </div>
+                </div>
+            </div>
             <!-- Flood Statistics -->
             <div class="panel-section">
-                <h3><i class="fas fa-chart-bar"></i> Flood Statistics (Module 1)</h3>
+                <h3><i class="fas fa-chart-bar"></i> Flood Statistics</h3>
                 <div id="statsContent">
                     <div class="empty-state">
                         <i class="fas fa-satellite-dish"></i>
@@ -383,7 +403,7 @@
 
             <!-- Population Impact -->
             <div class="panel-section" id="populationPanel">
-                <h3><i class="fas fa-users"></i> Population Impact (Module 2)</h3>
+                <h3><i class="fas fa-users"></i> Population Impact</h3>
                 <div id="populationContent">
                     <div class="empty-state">
                         <i class="fas fa-user-friends"></i>
@@ -391,34 +411,6 @@
                         <p>Will appear after flood detection completes</p>
                     </div>
                 </div>
-            </div>
-
-            <!-- Relief Recommendations -->
-            <div class="panel-section" id="reliefPanel">
-                <h3><i class="fas fa-hands-helping"></i> Relief Recommendations (Module 3)</h3>
-                <div id="reliefContent">
-                    <div class="empty-state">
-                        <i class="fas fa-map-marker-alt"></i>
-                        <p><strong>Click on any flooded area</strong></p>
-                        <p>Select a division on the map to see relief recommendations</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Legend -->
-            <div class="panel-section">
-                <h3><i class="fas fa-info-circle"></i> Legend</h3>
-                <div id="legendContent">
-                    <p style="color: #666; font-size: 0.9rem;">
-                        <i class="fas fa-circle" style="color: #dc2626;"></i> High Priority (Flooded)<br>
-                        <i class="fas fa-circle" style="color: #f97316;"></i> Medium Priority<br>
-                        <i class="fas fa-circle" style="color: #eab308;"></i> Low Priority<br>
-                        <i class="fas fa-circle" style="color: #22c55e;"></i> No Flood
-                    </p>
-                </div>
-                <button class="refresh-btn" onclick="loadAllData()">
-                    <i class="fas fa-sync-alt"></i> Refresh All Data
-                </button>
             </div>
         </div>
     </div>
@@ -428,7 +420,7 @@
         // CONFIGURATION
         // ═══════════════════════════════════════════════════
         const API_BASE = 'http://localhost:5001';  // Single unified server!
-        
+
         // ═══════════════════════════════════════════════════
         // MAP INITIALIZATION
         // ═══════════════════════════════════════════════════
@@ -439,6 +431,35 @@
             subdomains: 'abcd',
             maxZoom: 19
         }).addTo(map);
+
+        // ============================================================
+        // CUSTOM LEGEND - Map Bottom Right
+        // ============================================================
+        var legend = L.control({ position: 'bottomright' });
+
+        legend.onAdd = function () {
+            var div = L.DomUtil.create('div', 'info legend');
+            div.style.backgroundColor = 'white';
+            div.style.padding = '6px 10px';
+            div.style.borderRadius = '6px';
+            div.style.boxShadow = '0 2px 6px rgba(0,0,0,0.15)';
+            div.style.fontSize = '11px';
+            div.style.lineHeight = '1.6';
+            div.style.minWidth = '130px';
+
+            div.innerHTML = `
+        <div style="font-weight: 600; color: #0f3b2c; margin-bottom: 3px; font-size: 12px; border-bottom: 1px solid #eee; padding-bottom: 3px;">
+            Severity
+        </div>
+        <div><span style="display:inline-block; width:10px; height:10px; background:#dc2626; border-radius:2px; margin-right:6px;"></span> High (Flooded)</div>
+        <div><span style="display:inline-block; width:10px; height:10px; background:#f97316; border-radius:2px; margin-right:6px;"></span> Medium</div>
+        <div><span style="display:inline-block; width:10px; height:10px; background:#fef08a; border-radius:2px; margin-right:6px;"></span> Low</div>
+        <div><span style="display:inline-block; width:10px; height:10px; background:#e0e0e0; border-radius:2px; margin-right:6px;"></span> No Flood</div>
+    `;
+            return div;
+        };
+
+        legend.addTo(map);
 
         var floodLayer = null;
         var populationData = null;
@@ -469,15 +490,15 @@
             try {
                 const response = await fetch(`${API_BASE}/health`);
                 const data = await response.json();
-                
+
                 if (response.ok) {
                     const modules = data.modules || {};
-                    const allOnline = modules.module1_flood_detection === 'online' && 
-                                     modules.module2_population === 'online' && 
-                                     modules.module3_relief === 'online';
-                    
+                    const allOnline = modules.module1_flood_detection === 'online' &&
+                        modules.module2_population === 'online' &&
+                        modules.module3_relief === 'online';
+
                     if (allOnline) {
-                        statusBadge.innerHTML = '<i class="fas fa-circle" style="color: #22c55e; font-size: 0.7rem;"></i> All Modules: Online ✅';
+                        statusBadge.innerHTML = '<i class="fas fa-circle" style="color: #22c55e; font-size: 0.7rem;"></i> All Modules: Online';
                         statusBadge.style.background = '#1a6b4a';
                     } else {
                         statusBadge.innerHTML = '<i class="fas fa-circle" style="color: #f97316; font-size: 0.7rem;"></i> Server: Partial ⚠️';
@@ -495,11 +516,11 @@
         // LOAD ALL DATA (Flood + Population)
         // ═══════════════════════════════════════════════════
         async function loadAllData() {
-            console.log('🔄 Loading all data...');
-            
+            console.log('Loading all data...');
+
             // Load flood GeoJSON
             await loadFloodData();
-            
+
             // Load population data if GeoJSON available
             if (currentGeoJSON) {
                 await loadPopulationData();
@@ -534,7 +555,7 @@
                 }
 
                 floodLayer = L.geoJSON(geojsonData, {
-                    style: function(feature) {
+                    style: function (feature) {
                         var priority = feature.properties.priority_label || 'No Flood';
                         var colors = {
                             'High': { fill: '#dc2626', opacity: 0.6 },
@@ -551,28 +572,31 @@
                             fillOpacity: color.opacity
                         };
                     },
-                    onEachFeature: function(feature, layer) {
+                    onEachFeature: function (feature, layer) {
                         var props = feature.properties;
                         var divisionName = props.adm3_name || props.ds_division || 'Division';
-                        
+
                         layer.bindPopup(
-                            createPopupContent(props, divisionName), 
+                            createPopupContent(props, divisionName),
                             { maxWidth: 350 }
                         );
-                        
+
                         // Click event for relief recommendations
-                        layer.on('click', function() {
+                        layer.on('click', function () {
                             getReliefRecommendations(divisionName);
                         });
                     }
                 }).addTo(map);
 
                 map.fitBounds(floodLayer.getBounds());
-                
+
                 // Display flood statistics
                 displayFloodStats(geojsonData);
-                
-                console.log('✅ Flood data loaded successfully');
+
+                document.getElementById('floodUpdateTime').innerHTML =
+                    `<i class="fas fa-clock"></i> Flood event updated: ${new Date().toLocaleString()}`;
+
+                console.log('Flood data loaded successfully');
 
             } catch (error) {
                 console.log('Flood GeoJSON not available:', error.message);
@@ -616,7 +640,7 @@
                 if (data.status === 'SUCCESS') {
                     populationData = data;
                     displayPopulationStats(data);
-                    console.log('✅ Population data loaded successfully');
+                    console.log('Population data loaded successfully');
                 } else if (data.status === 'UNAVAILABLE') {
                     populationContent.innerHTML = `
                         <div class="error-message">
@@ -649,9 +673,9 @@
 
             let floodedDivisions = 0;
             let totalFloodArea = 0;
-            let highPriorityDivisions = 0;
-            let mediumPriorityDivisions = 0;
-            let lowPriorityDivisions = 0;
+            let highSeverity = 0;
+            let mediumSeverity = 0;
+            let lowSeverity = 0;
 
             features.forEach(f => {
                 if (f.properties) {
@@ -661,9 +685,9 @@
                     if (area > 0) {
                         floodedDivisions++;
                         totalFloodArea += area;
-                        if (priority === 'High') highPriorityDivisions++;
-                        else if (priority === 'Medium') mediumPriorityDivisions++;
-                        else if (priority === 'Low') lowPriorityDivisions++;
+                        if (priority === 'High') highSeverity++;
+                        else if (priority === 'Medium') mediumSeverity++;
+                        else if (priority === 'Low') lowSeverity++;
                     }
                 }
             });
@@ -672,20 +696,20 @@
 
             if (floodedDivisions === 0) {
                 statsContent.innerHTML = `
-                    <div class="success-message">
-                        <i class="fas fa-check-circle"></i>
-                        <strong>No Flooding Detected</strong>
-                        <p>All ${features.length} divisions are clear</p>
-                    </div>
-                `;
+            <div class="success-message">
+                <i class="fas fa-check-circle"></i>
+                <strong>No Flooding Detected</strong>
+                <p>All ${features.length} divisions are clear</p>
+            </div>
+        `;
                 return;
             }
 
             let severityColor, severityText;
-            if (totalAreaKm2 > 10 || highPriorityDivisions > 3) {
+            if (totalAreaKm2 > 10 || highSeverity > 3) {
                 severityColor = '#dc2626';
                 severityText = 'Severe Flood Event';
-            } else if (totalAreaKm2 > 5 || highPriorityDivisions > 0) {
+            } else if (totalAreaKm2 > 5 || highSeverity > 0) {
                 severityColor = '#f97316';
                 severityText = 'Moderate Flood Event';
             } else {
@@ -699,36 +723,29 @@
                         <div class="stat-value">${floodedDivisions}</div>
                         <div class="stat-label">Affected Divisions</div>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card highlight">
                         <div class="stat-value">${totalAreaKm2.toFixed(2)} km²</div>
                         <div class="stat-label">Total Flooded Area</div>
                     </div>
                 </div>
-                
-                <div class="stats-grid">
-                    <div class="stat-card" style="border-color: #dc2626;">
-                        <div class="stat-value" style="color: #dc2626;">${highPriorityDivisions}</div>
-                        <div class="stat-label">High Priority</div>
+
+                <!-- Severity Summary - Center aligned with numbers aligned -->
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 0.6rem 0; padding: 0.5rem 1rem; background: #f8f9fa; border-radius: 8px; font-size: 0.8rem; color: #333;">
+                    <div>
+                        <span style="display:inline-block; width:10px; height:10px; background:#dc2626; border-radius:50%; margin-right:6px;"></span> 
+                        <span style="display:inline-block; width:150px; text-align:left;">High Severity Divisions</span> 
+                        <span style="display:inline-block; width:20px; text-align:right; font-weight: bold;">${highSeverity}</span>
                     </div>
-                    <div class="stat-card" style="border-color: #f97316;">
-                        <div class="stat-value" style="color: #f97316;">${mediumPriorityDivisions}</div>
-                        <div class="stat-label">Medium Priority</div>
+                    <div>
+                        <span style="display:inline-block; width:10px; height:10px; background:#f97316; border-radius:50%; margin-right:6px;"></span> 
+                        <span style="display:inline-block; width:150px; text-align:left;">Medium Severity Divisions</span> 
+                        <span style="display:inline-block; width:20px; text-align:right; font-weight: bold;">${mediumSeverity}</span>
+                        </div>
+                    <div>
+                        <span style="display:inline-block; width:10px; height:10px; background:#fef08a; border-radius:50%; margin-right:6px;"></span> 
+                        <span style="display:inline-block; width:150px; text-align:left;">Low Severity Divisions</span> 
+                        <span style="display:inline-block; width:20px; text-align:right; font-weight: bold;">${lowSeverity}</span>
                     </div>
-                    <div class="stat-card" style="border-color: #eab308;">
-                        <div class="stat-value" style="color: #eab308;">${lowPriorityDivisions}</div>
-                        <div class="stat-label">Low Priority</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${features.length}</div>
-                        <div class="stat-label">Total Divisions</div>
-                    </div>
-                </div>
-                
-                <div style="margin-top: 0.8rem; padding: 0.8rem; background: #e8f5e9; border-radius: 10px; text-align: center;">
-                    <span class="severity-badge" style="background: ${severityColor};">${severityText}</span>
-                    <p style="margin-top: 0.5rem; font-size: 0.8rem; color: #0f3b2c;">
-                        <i class="fas fa-clock"></i> Last updated: ${new Date().toLocaleString()}
-                    </p>
                 </div>
             `;
         }
@@ -738,7 +755,7 @@
         // ═══════════════════════════════════════════════════
         function displayPopulationStats(data) {
             const populationContent = document.getElementById('populationContent');
-            
+
             if (!data.demographic_data || data.demographic_data.length === 0) {
                 populationContent.innerHTML = `
                     <div class="empty-state">
@@ -749,10 +766,10 @@
                 return;
             }
 
-            const totalAffected = data.demographic_data.reduce((sum, d) => 
+            const totalAffected = data.demographic_data.reduce((sum, d) =>
                 sum + d.summary_metrics.predicted_mean_affected, 0);
-            
-            const totalUpperRisk = data.demographic_data.reduce((sum, d) => 
+
+            const totalUpperRisk = data.demographic_data.reduce((sum, d) =>
                 sum + d.summary_metrics.conservative_upper_risk_limit, 0);
 
             const totalMale = data.demographic_data.reduce((sum, d) => sum + d.gender_demographics.male_count, 0);
@@ -768,47 +785,44 @@
             });
 
             populationContent.innerHTML = `
-                <div class="stats-grid">
+                <div class="stats-grid"> 
                     <div class="stat-card population">
-                        <div class="stat-value">${totalAffected.toLocaleString()}</div>
+                        <div class="stat-value" style="color: #0d1b2a;">${totalAffected.toLocaleString()}</div>
                         <div class="stat-label">Total Estimated Affected</div>
                     </div>
-                    <div class="stat-card" style="border-color: #dc2626;">
-                        <div class="stat-value" style="color: #dc2626;">${totalUpperRisk.toLocaleString()}</div>
+                    <div class="stat-card population">
+                        <div class="stat-value" style="color: #0d1b2a;">${totalUpperRisk.toLocaleString()}</div>
                         <div class="stat-label">Upper Risk Bound</div>
                     </div>
                 </div>
 
-                <div class="stats-grid" style="margin-top: 0.5rem;">
-                    <div class="stat-card" style="padding: 0.6rem; border-color: #3b82f6;">
-                        <div style="font-weight: bold; color: #1e3a8a;">👨 ${totalMale.toLocaleString()}</div>
-                        <div style="font-size: 0.7rem; color: #555;">Males Affected</div>
+                <!-- Demographics Summary - Two column layout (no circles) -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem 2rem; margin: 0.6rem 0; padding: 0.5rem 1rem; background: #f8f9fa; border-radius: 8px; font-size: 0.8rem; color: #333;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Males Affected</span>
+                        <span style="font-weight: bold;">${totalMale.toLocaleString()}</span>
                     </div>
-                    <div class="stat-card" style="padding: 0.6rem; border-color: #ec4899;">
-                        <div style="font-weight: bold; color: #5c0632;">👩 ${totalFemale.toLocaleString()}</div>
-                        <div style="font-size: 0.7rem; color: #555;">Females Affected</div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Children (0-14)</span>
+                        <span style="font-weight: bold;">${totalChildren.toLocaleString()}</span>
                     </div>
-                    <div class="stat-card" style="padding: 0.6rem; border-color: #f59e0b;">
-                        <div style="font-weight: bold; color: #78350f;">👶 ${totalChildren.toLocaleString()}</div>
-                        <div style="font-size: 0.7rem; color: #555;">Children (0-14)</div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Females Affected</span>
+                        <span style="font-weight: bold;">${totalFemale.toLocaleString()}</span>
                     </div>
-                    <div class="stat-card" style="padding: 0.6rem; border-color: #10b981;">
-                        <div style="font-weight: bold; color: #064e3b;">👵 ${totalElderly.toLocaleString()}</div>
-                        <div style="font-size: 0.7rem; color: #555;">Elderly (60+)</div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Elderly (60+)</span>
+                        <span style="font-weight: bold;">${totalElderly.toLocaleString()}</span>
                     </div>
                 </div>
-
-                <div style="background: #f0f9ff; padding: 10px; border-radius: 8px; margin-top: 0.5rem;">
-                    <strong style="font-size: 0.85rem;">🔝 Most Affected Division:</strong>
-                    <span style="font-weight: bold; color: #1a6b4a;">${topDivision.division_name}</span>
+                
+                <div style="background: #f0f9ff; padding: 10px; border-radius: 8px; margin-top: 0.5rem; margin-bottom: 10px; text-align: center;">
+                    <strong style="font-size: 0.85rem;">Most Affected Division:</strong>
+                    <span style="font-weight: bold; color: #0d1b2a;">${topDivision.division_name}</span>
                     <span style="color: #666; font-size: 0.8rem;">
                         (${topDivision.summary_metrics.predicted_mean_affected.toLocaleString()} people affected)
                     </span>
                 </div>
-                
-                <p style="font-size: 0.7rem; color: #666; margin-top: 0.5rem; text-align: center;">
-                    Click on any division on the map for detailed demographics
-                </p>
             `;
         }
 
@@ -817,8 +831,8 @@
         // ═══════════════════════════════════════════════════
         function getPopulationForDivision(divisionName) {
             if (!populationData || !populationData.demographic_data) return null;
-            
-            return populationData.demographic_data.find(d => 
+
+            return populationData.demographic_data.find(d =>
                 d.division_name.toLowerCase() === divisionName.toLowerCase()
             );
         }
@@ -835,7 +849,7 @@
             };
             var priorityColor = priorityColors[props.priority_label] || '#6b7280';
             var popData = getPopulationForDivision(divisionName);
-            
+
             var html = `
                 <div style="font-family: 'Segoe UI', sans-serif; min-width: 260px;">
                     <h3 style="color: #0f3b2c; margin: 0 0 10px 0; font-size: 1.1rem; border-bottom: 2px solid #1a6b4a; padding-bottom: 8px;">
@@ -860,38 +874,34 @@
                         </div>
                     </div>
             `;
-            
+
             // Add population data if available
             if (popData) {
                 html += `
-                    <div style="background: #e8f5e9; padding: 10px; border-radius: 6px; margin-bottom: 10px; border-left: 3px solid #1a6b4a;">
-                        <div style="font-size: 0.7rem; color: #666; margin-bottom: 5px;">👥 LIVE DEMOGRAPHIC PREDICTIONS</div>
+                    <div style="background: #f0f9ff; padding: 10px; border-radius: 6px; margin-bottom: 10px;">
+                        <div style="font-size: 0.7rem; color: #666; margin-bottom: 5px;">LIVE DEMOGRAPHIC PREDICTIONS</div>
                         <div style="font-weight: bold; font-size: 1.1rem; color: #0f3b2c; margin-bottom: 6px;">
                             ${popData.summary_metrics.predicted_mean_affected.toLocaleString()} people affected
                         </div>
                         <div class="demographics-grid">
-                            <div>🚻 Male: ${popData.gender_demographics.male_count.toLocaleString()}</div>
-                            <div>🚺 Female: ${popData.gender_demographics.female_count.toLocaleString()}</div>
-                            <div>👶 Children: ${popData.age_demographics.children_count_0_14.toLocaleString()}</div>
-                            <div>👴 Elderly: ${popData.age_demographics.elderly_count_60_plus.toLocaleString()}</div>
+                            <div>Male: ${popData.gender_demographics.male_count.toLocaleString()}</div>
+                            <div>Female: ${popData.gender_demographics.female_count.toLocaleString()}</div>
+                            <div>Children: ${popData.age_demographics.children_count_0_14.toLocaleString()}</div>
+                            <div>Elderly: ${popData.age_demographics.elderly_count_60_plus.toLocaleString()}</div>
                         </div>
                     </div>
                 `;
             }
-            
+
             html += `
                     <div style="text-align: center; margin-top: 10px;">
                         <span style="display: inline-block; padding: 4px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; color: white; background: ${priorityColor};">
-                            ${props.priority_label || 'No Flood'}
+                            Flood Severity: ${props.priority_label || 'No Flood'}
                         </span>
                     </div>
-                    
-                    <button class="popup-btn" onclick="getReliefRecommendations('${divisionName}')">
-                        📦 Get Relief Recommendations
-                    </button>
                 </div>
             `;
-            
+
             return html;
         }
 
@@ -899,8 +909,8 @@
         // RELIEF RECOMMENDATIONS (Module 3)
         // ═══════════════════════════════════════════════════
         async function getReliefRecommendations(divisionName) {
-            console.log(`📋 Getting relief recommendations for: ${divisionName}`);
-            
+            console.log(`Getting relief recommendations for: ${divisionName}`);
+
             const reliefContent = document.getElementById('reliefContent');
             reliefContent.innerHTML = `
                 <div class="loading">
@@ -916,7 +926,7 @@
 
                 if (data.success) {
                     displayReliefRecommendations(data);
-                    console.log('✅ Relief recommendations loaded');
+                    console.log('Relief recommendations loaded');
                 } else {
                     throw new Error(data.error || 'Unknown error');
                 }
@@ -937,67 +947,83 @@
 
         function displayReliefRecommendations(data) {
             const reliefContent = document.getElementById('reliefContent');
-            
+
+            const foodItems = ['Cooked Food Packs', 'Water Bottles', 'Noodles Packs', 'Biscuits Packs', 'Tea Powder Packets'];
+            const nutritionItems = ['Milk Powder Packs', 'Infant Milk Powder Packs'];
+            const hygieneItems = ['Soap', 'Toothbrushes', 'Toothpaste', 'Sanitary'];
+
+            function renderCategory(title, items) {
+                const hasItems = items.some(item => data.relief_predictions[item]);
+                if (!hasItems) return '';
+
+                let html = `<div style="font-weight: 500; color: #0f3b2c; margin-top: 0.5rem; margin-bottom: 0.2rem; font-size: 0.85rem;">${title}</div>`;
+                html += `<div style="display: flex; flex-direction: column; gap: 2px; margin-left: 0.5rem;">`;
+                items.forEach(item => {
+                    if (data.relief_predictions[item]) {
+                        const details = data.relief_predictions[item];
+                        let displayName = item;
+                        if (item === 'Cooked Food Packs') {
+                            displayName = 'Cooked Food Packets';
+                        }
+                        if (item === 'Tea Powder Packets') {
+                            displayName = 'Tea Powder Packs';
+                        }
+                        if (item === 'Sanitary') {
+                            displayName = 'Sanitary Pad Packets';
+                        }
+                        html += `
+                            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; padding: 2px 0;">
+                                <span style="color: #333;">${displayName}</span>
+                                <span style="font-weight: 500; color: #0f3b2c;">${details.quantity.toLocaleString()}</span>
+                            </div>
+                        `;
+                    }
+                });
+                html += `</div>`;
+                return html;
+            }
+
+            let itemsHtml = '';
+            itemsHtml += renderCategory('Food:', foodItems);
+            itemsHtml += renderCategory('Nutrition:', nutritionItems);
+            itemsHtml += renderCategory('Hygiene:', hygieneItems);
+
             reliefContent.innerHTML = `
                 <div style="margin-bottom: 1rem;">
-                    <div class="stat-card highlight" style="margin-bottom: 1rem;">
-                        <div class="stat-value">${data.division}</div>
-                        <div class="stat-label">Selected Division</div>
-                    </div>
-                    
                     <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-value">${data.input_data.affected_population.toLocaleString()}</div>
-                            <div class="stat-label">Affected Population</div>
+                        <!-- Division Box -->
+                        <div class="stat-card highlight" style="border-color: #78350f; background: rgba(253, 230, 138, 0.25)">
+                            <div class="stat-value" style="color: #6b4226">${data.division}</div>
+                            <div class="stat-label">Selected Division</div>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-value">
-                                <span class="priority-badge priority-${data.overall_priority}">${data.overall_priority}</span>
-                            </div>
-                            <div class="stat-label">Priority Level</div>
+                        
+                        <!-- Priority Level Row -->
+                        <div class="stat-card highlight" style="border-color: #78350f; background: rgba(253, 230, 138, 0.25)">
+                            <div class="stat-value" style="color: #6b4226">${data.overall_priority}</div>
+                            <div class="stat-label">Priority Level:</div>
                         </div>
                     </div>
+
+                    <h4 style="margin: 1rem 0 0.5rem 0; font-size: 0.95rem; color: #0f3b2c;">Emergency Relief Items (First 72 Hours)</h4>
                     
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-value">${data.input_data.children_percentage}%</div>
-                            <div class="stat-label">Children</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value">${data.input_data.elderly_percentage}%</div>
-                            <div class="stat-label">Elderly</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value">${data.input_data.female_percentage}%</div>
-                            <div class="stat-label">Female</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value">${data.input_data.flood_severity}</div>
-                            <div class="stat-label">Flood Severity</div>
+                    <!-- Centered list container -->
+                    <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+                        <div style="width: 100%; max-width: 350px; padding: 0.5rem 1rem; background: #f8f9fa; border-radius: 8px;">
+                            ${itemsHtml}
                         </div>
                     </div>
                 </div>
                 
-                <h4 style="margin: 1rem 0 0.5rem 0;">📦 Relief Items Needed (First 72 Hours)</h4>
-                <div class="relief-grid">
-                    ${Object.entries(data.relief_predictions).map(([item, details]) => `
-                        <div class="relief-item">
-                            <div class="relief-name">${item}</div>
-                            <div class="relief-quantity">${details.quantity.toLocaleString()}</div>
-                            <span class="priority-badge priority-${details.priority}" style="font-size: 0.7rem; margin-top: 0.25rem;">${details.priority}</span>
-                        </div>
-                    `).join('')}
-                </div>
-                
-                <div class="causal-box" style="margin-top: 1rem;">
-                    <h4 style="margin-bottom: 0.5rem;"><i class="fas fa-brain"></i> Why these items?</h4>
-                    <p>${data.explanation}</p>
+                <!-- Explanation Box - Small, No Border, Light Yellow -->
+                <div style="margin-top: 0.8rem; padding: 0.5rem 0.8rem; background: rgba(253, 230, 138, 0.25); border-radius: 6px; font-size: 0.8rem;">
+                    <div style="font-weight: 500; color: #78350f; margin-bottom: 0.3rem; font-size: 0.85rem;">
+                        </i> Why these items?
+                    </div>
+                    <p style="margin: 0.2rem 0; color: #333;">${data.explanation}</p>
                     ${data.drivers && data.drivers.length > 0 ? `
-                        <div class="reasoning-step">
-                            <strong>Key Drivers:</strong>
-                            <ul style="margin-left: 1rem; margin-top: 0.3rem;">
-                                ${data.drivers.map(d => `<li>${d}</li>`).join('')}
-                            </ul>
+                        <div style="margin-top: 0.3rem; padding-top: 0.3rem;">
+                            <strong style="font-size: 0.75rem; color: #666;">Key Drivers:</strong>
+                            <span style="font-size: 0.75rem; color: #555; margin-left: 0.3rem;">${data.drivers.join(', ')}</span>
                         </div>
                     ` : ''}
                 </div>
@@ -1007,17 +1033,18 @@
         // ═══════════════════════════════════════════════════
         // INITIALIZATION
         // ═══════════════════════════════════════════════════
-        console.log('🌊 Flood Relief Dashboard Initializing...');
-        console.log(`📡 Connecting to: ${API_BASE}`);
-        
+        console.log('Flood Relief Dashboard Initializing...');
+        console.log(`Connecting to: ${API_BASE}`);
+
         checkServerStatus();
         loadAllData();
-        
+
         // Auto-refresh
         setInterval(checkServerStatus, 15000);  // Every 15 seconds
         setInterval(loadAllData, 60000);         // Every 60 seconds
-        
-        console.log('✅ Dashboard ready!');
+
+        console.log('Dashboard ready!');
     </script>
 </body>
+
 </html>

@@ -18,7 +18,7 @@ class ReliefDataPreprocessor:
             'Affected_Population',
             'Children_%',
             'Elderly_%',
-            'Female %',
+            'Female_%',
             'Severity_Code'
         ]
 
@@ -63,7 +63,7 @@ class ReliefDataPreprocessor:
         rename_map = {
             'Children_Pct': 'Children_%', 
             'Elderly_Pct': 'Elderly_%',
-            'Female_Pct': 'Female %',
+            'Female_Pct': 'Female_%',
             'Cooked_Food_Packs': 'Cooked Food Packs', 
             'Water_Bottles': 'Water Bottles',
             'Milk_Powder_Packs': 'Milk Powder Packs', 
@@ -74,29 +74,27 @@ class ReliefDataPreprocessor:
         }
         self.data.rename(columns=rename_map, inplace=True)
 
-        numeric_cols = ['Year', 'Affected_Population', 'Children_%', 'Elderly_%', 'Female %'] + self.target_columns
+        numeric_cols = ['Year', 'Affected_Population', 'Children_%', 'Elderly_%', 'Female_%'] + self.target_columns
         for col in numeric_cols:
             if col in self.data.columns:
                 self.data[col] = pd.to_numeric(self.data[col], errors='coerce')
 
         self.data.dropna(subset=['Year', 'DS_Division', 'Affected_Population'], inplace=True)
-        print(f"Loaded: {self.data.shape}")
         return self.data
 
     def clean_data(self):
         targets = [c for c in self.target_columns if c in self.data.columns]
         self.data.dropna(subset=targets, inplace=True)
         
-        for col in ['Children_%', 'Elderly_%', 'Female %']:
+        for col in ['Children_%', 'Elderly_%', 'Female_%']:
             if col in self.data.columns:
                 self.data[col] = self.data[col] / 100
         
-        if 'Female %' in self.data.columns:
-            missing_count = self.data['Female %'].isna().sum()
+        if 'Female_%' in self.data.columns:
+            missing_count = self.data['Female_%'].isna().sum()
             if missing_count > 0:
-                avg_female = self.data['Female %'].mean()
-                self.data['Female %'] = self.data['Female %'].fillna(avg_female)
-                print(f"✅ Filled {missing_count} missing Female % values")
+                avg_female = self.data['Female_%'].mean()
+                self.data['Female_%'] = self.data['Female_%'].fillna(avg_female)
         
         return self.data
 
@@ -108,9 +106,6 @@ class ReliefDataPreprocessor:
     def time_split(self, test_year=2025):
         train_data = self.data[self.data['Year'] < test_year]
         test_data = self.data[self.data['Year'] == test_year]
-
-        print(f"Training years: {train_data['Year'].unique().tolist()}")
-        print(f"Testing years: {test_data['Year'].unique().tolist()}")
 
         X_train = train_data[self.feature_columns]
         y_train = train_data[self.target_columns]
@@ -133,10 +128,6 @@ class ReliefDataPreprocessor:
         return X_train_scaled, X_test_scaled, y_train_scaled, y_test_scaled
 
     def run_pipeline(self, test_year=2025, scale=True):
-        print("\n" + "=" * 50)
-        print("DATA PREPROCESSING")
-        print("=" * 50)
-
         self.load_data()
         self.clean_data()
         self.encode_severity()
@@ -145,11 +136,7 @@ class ReliefDataPreprocessor:
 
         if scale:
             X_train, X_test, y_train, y_test = self.scale_data(X_train, X_test, y_train, y_test)
-            print("Returning SCALED data")
-        else:
-            print("Returning RAW data")
 
-        print(f"Train: {len(X_train)}, Test: {len(X_test)}")
         return X_train, X_test, y_train, y_test, self.data
 
     def get_division_list(self):

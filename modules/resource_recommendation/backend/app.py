@@ -49,26 +49,10 @@ def health():
 
 
 if __name__ == '__main__':
-    print("\n" + "=" * 70)
-    print("🌊 MODULE 3 - RELIEF RESOURCE RECOMMENDATION")
-    print("=" * 70)
-    print(f"📊 Data file: {DATA_PATH}")
-    print(f"🎭 Mock mode: {Config.USE_MOCK_DATA}")
-    print(f"   (Set USE_MOCK_DATA=False in .env when Module 2 is ready)")
-    print("=" * 70)
-    
     if not os.path.exists(DATA_PATH):
-        print(f"❌ Data file not found: {DATA_PATH}")
-        print("   Please place your Excel file in the data/ folder")
+        print(f"Data file not found: {DATA_PATH}")
+        print("Please place your Excel file in the data/ folder")
     else:
         initialize_module3(DATA_PATH)
-    
-    print("\n" + "=" * 70)
-    print(f"🌐 API Running on http://localhost:{Config.MODULE3_PORT}")
-    print("=" * 70)
-    print(f"📍 Health check: http://localhost:{Config.MODULE3_PORT}/health")
-    print(f"📍 Predict: http://localhost:{Config.MODULE3_PORT}/api/predict/Gampaha")
-    print(f"📍 Divisions: http://localhost:{Config.MODULE3_PORT}/api/divisions")
-    print("=" * 70)
     
     app.run(host='0.0.0.0', port=Config.MODULE3_PORT, debug=Config.DEBUG)

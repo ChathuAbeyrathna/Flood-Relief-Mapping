@@ -1,6 +1,7 @@
 {
     "python-envs.defaultEnvManager": "ms-python.python:system",
     "python.analysis.extraPaths": [
-        "./modules/resource_recommendation/backend"
+        "./modules/resource_recommendation/backend",
+        "./models/productionN"
     ]
 }

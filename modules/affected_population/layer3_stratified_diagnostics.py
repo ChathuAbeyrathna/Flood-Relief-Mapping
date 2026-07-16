@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt    #visualization
 from bartpy.sklearnmodel import SklearnModel    # BART model implementation
-from bartpy.diagnostics.features import feature_split_proportions    # Diagnostic utility for extracting feature split frequencies
+#from bartpy.diagnostics.features import feature_split_proportions    # Diagnostic utility for extracting feature split frequencies
 
 def layer3_stratified_diagnostics():
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".." ))
