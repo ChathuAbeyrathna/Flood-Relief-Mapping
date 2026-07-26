@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from pgmpy.models import DiscreteBayesianNetwork
+from pgmpy.models import BayesianNetwork
 from pgmpy.estimators import BayesianEstimator, MaximumLikelihoodEstimator
 from pgmpy.inference import VariableElimination
 import warnings
@@ -102,7 +102,7 @@ class CausalReliefNetwork:
         
         available_edges = [(u, v) for u, v in self.causal_edges if u in available_nodes and v in available_nodes]
         
-        self.model = DiscreteBayesianNetwork(available_edges)
+        self.model = BayesianNetwork(available_edges)
         
         # Try Bayesian Estimator (with prior)
         try:

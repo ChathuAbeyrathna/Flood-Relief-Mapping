@@ -5,7 +5,7 @@ Run from project root: python validate_adam.py
 Team Trivia · University of Moratuwa · 2026
 """
 
-import os
+import os 
 import sys
 import json
 import shutil
