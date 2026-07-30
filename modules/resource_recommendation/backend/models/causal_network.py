@@ -241,19 +241,7 @@ class CausalReliefNetwork:
         
         situation_words = []
         
-        # Describe population size
-        if pop > 30000:
-            situation_words.append(f"A massive {pop:,} people")
-        elif pop > 20000:
-            situation_words.append(f"A large {pop:,} people")
-        elif pop > 10000:
-            situation_words.append(f"{pop:,} people")
-        elif pop > 5000:
-            situation_words.append(f"A moderate {pop:,} people")
-        else:
-            situation_words.append(f"A small {pop:,} people")
-        
-        situation_words.append("are affected by a")
+        situation_words.append(f"{pop:,} people are affected by a")
         
         # Describe severity
         if severity == 'High':
